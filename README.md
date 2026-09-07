@@ -11,7 +11,7 @@ dotnet run --project src/Cli
 dotnet run --project src/Cli --json  
 
 ## Середовище
-.NET SDK 8.0.424, Windows 11 x64  
+.NET SDK 10.0.11, Windows 11 x64  
 
 ## Додаткове завдання  
 Розмір win-x64:  70.5  MB  
