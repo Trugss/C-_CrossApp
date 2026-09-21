@@ -8,27 +8,37 @@
 
 **Структура Solution**
 ```text
-CrossApp/  
+CrossApp/
 ├── CrossApp.sln
 ├── README.md
-├── .gitignore
-└── src/
-    ├── Core/
-    │   ├── Core.csproj
-    │   ├── EnvironmentInfo.cs
-    │   ├── Dto/ - для record-типів формату даних
-    │   ├── Domain/ - для сутностей з поведінкою та інваріантами
-    │   └── Storage/ - для реалізації сховищ
-    └── Cli/  
-        ├── Cli.csproj    
-        └── Program.cs    
+├── data/
+│   ├── sample.csv
+│   ├── sample.json
+│   └── mixed.csv
+├── src/
+│   ├── Core/
+│   │   ├── Dto/
+│   │   │   ├── BookDto.cs
+│   │   │   ├── ReaderDto.cs
+│   │   │   ├── ImportResult.cs
+│   │   │   └── LibraryBatchResult.cs
+│   │   ├── Import/
+│   │   │   ├── BookCsvImporter.cs
+│   │   │   ├── BookJsonImporter.cs
+│   │   │   └── MixedCsvImporter.cs
+│   │   └── EnvironmentInfo.cs
+│   └── Cli/
+│       └── Program.cs
+└── publish/   
 ```
 
 ## Запуск
 ```
 dotnet build  
 dotnet run --project src/Cli  
-dotnet run --project src/Cli --json  
+dotnet run --project src/Cli -- "data/sample.json"  
+dotnet run --project src/Cli -- "data/mixed.csv"  
+dotnet run --project src/Cli -- "data/missing.csv"  
 ```
 ## Публікація застосунку
 **Self-contained публікація під Windows**
@@ -75,3 +85,7 @@ dotnet publish src/Cli -c Release -r win-x64 --self-contained true -p:PublishTri
 ```
 **Multi-Targeting та умовна компіляці**: Виконано  
 **Крос-компіляція під RID іншої ОС**: Виконано (В таблиці додано порівняння)
+**Лабораторна робота 3**  
+JSON-імпортер (BookJsonImporter): Виконано  
+Різнорідні рядки (MixedCsvImporter): Виконано  
+Статистика в один рядок: Виконано

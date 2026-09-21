@@ -1,32 +1,65 @@
-﻿using System.Runtime.InteropServices;
-using System.Text.Encodings.Web;
-using System.Text.Json;
-using Core;
+﻿using System.Globalization;
+using Core.Dto;
+using Core.Import;
 
-Console.OutputEncoding = System.Text.Encoding.UTF8;
+string path = args.Length > 0 ? args[0] : Path.Combine("data", "sample.csv");
 
-EnvironmentReport report = EnvironmentInfo.Collect();
-
-if (args.Contains("--json", StringComparer.OrdinalIgnoreCase))
+if (!File.Exists(path))
 {
-    var jsonOptions = new JsonSerializerOptions
+    Console.WriteLine($"Файл не знайдено: {Path.GetFullPath(path)}");
+    return 1;
+}
+
+string fileName = Path.GetFileName(path);
+string extension = Path.GetExtension(path).ToLowerInvariant();
+
+if (fileName.Equals("mixed.csv", StringComparison.OrdinalIgnoreCase))
+{
+    LibraryBatchResult batch = MixedCsvImporter.Load(path);
+    int total = batch.Books.Count + batch.Readers.Count + batch.Errors.Count;
+    int accepted = batch.Books.Count + batch.Readers.Count;
+    double errorRate = total > 0 ? (double)batch.Errors.Count / total * 100 : 0;
+
+    Console.WriteLine($"[ЗМІШАНИЙ ІМПОРТ] Завантажено книг: {batch.Books.Count}, читачів: {batch.Readers.Count}");
+    Console.WriteLine($"Статистика: Усього: {total} | Прийнято: {accepted} | Пропущено: {batch.Errors.Count} | Помилок: {errorRate:F1}%");
+
+    if (batch.Errors.Count > 0)
     {
-        WriteIndented = true,
-        Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping
-    };
+        Console.WriteLine("Помилки:");
+        foreach (string err in batch.Errors)
+            Console.WriteLine($" ! {err}");
+    }
+    return 0;
+}
 
-    Console.WriteLine(JsonSerializer.Serialize(report, jsonOptions));
-}
-else
+ImportResult<BookDto> result = extension switch
 {
-    Console.WriteLine("CrossApp - інформація про середовище");
-    Console.WriteLine(new string('-', 52));
-    Console.WriteLine($"OC (OSDescription): {report.OsDescription}");
-    Console.WriteLine($"Архітектура процесу: {report.ProcessArchitecture}");
-    Console.WriteLine($"Runtime: {report.FrameworkDescription}");
-    Console.WriteLine($"Каталог застосунку: {report.BaseDirectory}");
-    Console.WriteLine($"Визначений RID: {report.DetectedRid}");
-    Console.WriteLine($"RID (Від .NET): {report.ReportedRid}");
-    Console.WriteLine($"Примітка збірки: {report.BuildNote}");
-    Console.WriteLine(new string('-', 52));
+    ".csv" => BookCsvImporter.Load(path),
+    ".json" => BookJsonImporter.Load(path),
+    _ => new ImportResult<BookDto>(Array.Empty<BookDto>(), new[] { $"Непідтримуваний формат файлу: {extension}" })
+};
+
+Console.WriteLine($"Завантажено записів: {result.Items.Count}");
+Console.WriteLine(new string('-', 75));
+
+foreach (BookDto book in result.Items.Take(5))
+{
+    Console.WriteLine($" {book.Id,-6} | {book.Year,4} | {book.Title,-32} | {book.Author ?? "Не вказано"}");
 }
+
+if (result.Errors.Count > 0)
+{
+    Console.WriteLine(new string('-', 75));
+    Console.WriteLine($"Пропущено рядків: {result.Errors.Count}");
+    foreach (string err in result.Errors)
+    {
+        Console.WriteLine($" ! {err}");
+    }
+}
+
+int totalRows = result.Items.Count + result.Errors.Count;
+double errorPercent = totalRows > 0 ? (double)result.Errors.Count / totalRows * 100 : 0;
+Console.WriteLine(new string('=', 75));
+Console.WriteLine($"Статистика: Усього: {totalRows} | Прийнято: {result.Items.Count} | Пропущено: {result.Errors.Count} | Помилок: {errorPercent:F1}%");
+
+return 0;

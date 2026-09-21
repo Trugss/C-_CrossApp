@@ -14,10 +14,10 @@ public sealed record EnvironmentReport(
 
 public static class EnvironmentInfo
 {
-    #if NET10_0_or_GREATER
-        private const string BuildNote = "Збірка з .NET 10"; 
+    #if NET10_0_OR_GREATER
+        private const string BuildNote = ".NET 10"; 
     #else 
-        private const string BuildNote = "Збірка з .NET 8.0";
+        private const string BuildNote = ".NET 8.0";
     #endif
     public static EnvironmentReport Collect() => new(
         RuntimeInformation.OSDescription,
