@@ -75,6 +75,28 @@ TryDo("Неприпустимий перехід: з Returned назад в Acti
     statusLoan.ChangeStatus(LoanStatus.Active);
 });
 
+Console.WriteLine();
+Console.WriteLine("-> Перевірка пакетної конвертації з ImportResult (Додаткове завдання 1):");
+
+var sampleDtos = new List<Core.Dto.BookCopyDto>
+{
+    new Core.Dto.BookCopyDto("BC-IMPORT-1", "978-966-03-1234-5", false),
+    new Core.Dto.BookCopyDto("BC-IMPORT-2", "   ", false)
+};
+var sampleImportResult = new Core.Dto.ImportResult<Core.Dto.BookCopyDto>(
+    sampleDtos, 
+    new List<string> { "Помилка формату CSV у рядку 42" }
+);
+
+var (validEntities, conversionErrors) = DomainBatchConverter.ToEntities(sampleImportResult);
+
+Console.WriteLine($"   Успішно створено сутностей: {validEntities.Count}");
+Console.WriteLine($"   Усього помилок (імпорт + інваріанти): {conversionErrors.Count}");
+foreach (var err in conversionErrors)
+{
+    Console.WriteLine($"   [ПОМИЛКА ВХІДНИХ ДАНИХ]: {err}");
+}
+
 static void TryDo(string title, Action action)
 {
     try
