@@ -1,111 +1,102 @@
-﻿using Core.Domain;
+﻿using Core;
+using Core.Abstractions;
+using Core.Domain;
+using Core.Services;
+using Core.Storage;
 
 Console.OutputEncoding = System.Text.Encoding.UTF8;
 
-Console.WriteLine("Сценарій 1: Успіх");
+bool useFile = args.Contains("--file");
+bool useCache = args.Contains("--cache");
+string dataPath = Path.Combine(AppContext.BaseDirectory, "data", "library.json");
 
-var copy = BookCopy.Create("BC-101", "978-966-03-8000-0");
-Console.WriteLine("Створено: " + copy);
+IBookStore store;
+if (args.Contains("--factory"))
+{
+    store = StoreFactory.Create(args);               // 3
+}
+else
+{
+    store = useFile
+        ? new FileBookStore(dataPath)
+        : new InMemoryBookStore(SampleData.BookCopies());
 
-var issuedDate = new DateTime(2026, 9, 20);
-var loan = Loan.Open("LN-001", copy, "R-501", issuedDate);
-Console.WriteLine("Відкрито видачу: " + loan);
-Console.WriteLine("Стан примірника після видачі: " + copy);
+    if (useCache)
+        store = new CachingBookStore(store);         // 1
+}
 
-var returnDate = new DateTime(2026, 9, 28);
-loan.Close(copy, returnDate);
-Console.WriteLine("Закрито видачу: " + loan);
-Console.WriteLine("Стан примірника після повернення: " + copy);
+var service = new LendingService(store);
+
+Console.WriteLine($"Сховище: {(store is CachingBookStore caching ? $"{nameof(CachingBookStore)} -> {caching.InnerName}" : store.GetType().Name)}");
+if (useFile)
+    Console.WriteLine($"Файл даних: {dataPath}");
 
 Console.WriteLine();
-Console.WriteLine("Сценарій 2: Порушення інваріантів");
+Console.WriteLine("Сценарій 1: додати, змінити, показати список, знайти за id");
 
-TryDo("Порожній ISBN примірника", () => BookCopy.Create("BC-102", "   "));
+var created = service.AddBook("978-966-03-9999-1", "Кайдашева сім'я");
+Console.WriteLine($"Додано:  {created}");
 
-TryDo("Порожній читач у видачі", () => Loan.Open("LN-002", copy, "", DateTime.Now));
+service.IssueCopy(created.Id);
+Console.WriteLine($"Видано:  {service.Find(created.Id)}");
 
-copy.Issue();
-TryDo("Повторна видача зайнятого примірника", () => copy.Issue());
-TryDo("Відкриття Loan на вже виданий примірник", () => Loan.Open("LN-003", copy, "R-502", DateTime.Now));
+Console.WriteLine();
+Console.WriteLine($"Усі примірники ({service.All().Count}):");
+foreach (var c in service.All())
+    PrintRow(c);
 
-copy.Return();
-TryDo("Повернення примірника, який не видавався", () => copy.Return());
+Console.WriteLine();
+var found = service.Find(created.Id);
+Console.WriteLine(found is null
+    ? $"Пошук за id '{created.Id}': не знайдено"
+    : $"Пошук за id '{created.Id}': {found}");
+Console.WriteLine($"Пошук за id 'BC-404': {service.Find("BC-404")?.ToString() ?? "не знайдено"}");
 
-var activeLoan = Loan.Open("LN-004", copy, "R-503", new DateTime(2026, 9, 25));
-TryDo("Дата повернення раніше за дату видачі", () => activeLoan.Close(copy, new DateTime(2026, 9, 10)));
+Console.WriteLine();
+Console.WriteLine("Сценарій 2: помилки з людським повідомленням");
 
-activeLoan.Close(copy, new DateTime(2026, 9, 27));
-TryDo("Повторне закриття закритої видачі", () => activeLoan.Close(copy, new DateTime(2026, 9, 28)));
+TryDo("Видача неіснуючого примірника", () => service.IssueCopy("BC-404"));
+TryDo("Повернення неіснуючого примірника", () => service.ReturnCopy("BC-404"));
+TryDo("Додавання примірника з уже наявним id", () => service.AddBook(created.Id, "978-966-03-0000-0", "Дубль"));
+TryDo("Повторна видача вже виданого примірника", () => service.IssueCopy(created.Id));
+
+service.ReturnCopy(created.Id);
+Console.WriteLine($"Повернено: {service.Find(created.Id)}");
 
 Console.WriteLine();
 Console.WriteLine("Сценарій 3: Додаткові завдання");
 
-Console.WriteLine("-> Перевірка доменного сервісу ліміту 5 видач:");
-var loanService = new LoanService();
-var allLoans = new List<Loan>();
-var readerId = "R-777";
+Console.WriteLine("-> Пошук з Func<BookCopy, bool> (Додаткове завдання 2):");
+var available = service.Search(c => !c.IsIssued);
+Console.WriteLine($"   Доступних примірників: {available.Count}");
+var csharpBooks = service.Search(c => c.Title.Contains("C#", StringComparison.OrdinalIgnoreCase));
+Console.WriteLine($"   Книжок про C#: {csharpBooks.Count}");
+foreach (var c in csharpBooks)
+    PrintRow(c);
 
-for (int i = 1; i <= 5; i++)
+if (store is CachingBookStore cache)
 {
-    var book = BookCopy.Create($"BC-BONUS-{i}", $"978-966-03-{i:0000}-0");
-    var l = loanService.IssueBook($"LN-BONUS-{i}", book, readerId, allLoans, DateTime.Now);
-    allLoans.Add(l);
+    Console.WriteLine();
+    Console.WriteLine("-> Декоратор CachingBookStore (Додаткове завдання 1):");
+    service.All();
+    service.All();
+    service.Find(created.Id);
+    service.Find(created.Id);
+    Console.WriteLine($"   Влучань у кеш: {cache.Hits}, звернень до {cache.InnerName}: {cache.Misses}");
 }
-Console.WriteLine($"   Створено {allLoans.Count} активних видач для читача {readerId}");
 
-var extraBook = BookCopy.Create("BC-BONUS-6", "978-966-03-0006-0");
-TryDo("Спроба взяти 6-ту книгу при ліміті 5", () =>
-{
-    loanService.IssueBook("LN-BONUS-6", extraBook, readerId, allLoans, DateTime.Now);
-});
-
-Console.WriteLine();
-Console.WriteLine("-> Перевірка статусів LoanStatus та switch-переходів:");
-var statusBook = BookCopy.Create("BC-STATUS-1", "978-966-03-8888-0");
-var statusLoan = Loan.Open("LN-STATUS-1", statusBook, "R-999", DateTime.Now);
-
-statusLoan.ChangeStatus(LoanStatus.Overdue);
-Console.WriteLine($"   Поточний статус: {statusLoan.Status}");
-
-statusLoan.ChangeStatus(LoanStatus.Returned);
-Console.WriteLine($"   Поточний статус після повернення: {statusLoan.Status}");
-
-TryDo("Неприпустимий перехід: з Returned назад в Active", () =>
-{
-    statusLoan.ChangeStatus(LoanStatus.Active);
-});
-
-Console.WriteLine();
-Console.WriteLine("-> Перевірка пакетної конвертації з ImportResult (Додаткове завдання 1):");
-
-var sampleDtos = new List<Core.Dto.BookCopyDto>
-{
-    new Core.Dto.BookCopyDto("BC-IMPORT-1", "978-966-03-1234-5", false),
-    new Core.Dto.BookCopyDto("BC-IMPORT-2", "   ", false)
-};
-var sampleImportResult = new Core.Dto.ImportResult<Core.Dto.BookCopyDto>(
-    sampleDtos, 
-    new List<string> { "Помилка формату CSV у рядку 42" }
-);
-
-var (validEntities, conversionErrors) = DomainBatchConverter.ToEntities(sampleImportResult);
-
-Console.WriteLine($"   Успішно створено сутностей: {validEntities.Count}");
-Console.WriteLine($"   Усього помилок (імпорт + інваріанти): {conversionErrors.Count}");
-foreach (var err in conversionErrors)
-{
-    Console.WriteLine($"   [ПОМИЛКА ВХІДНИХ ДАНИХ]: {err}");
-}
+static void PrintRow(BookCopy c) =>
+    Console.WriteLine($"   {c.Id,-12} {c.Isbn,-18} {c.Title,-24} {(c.IsIssued ? "виданий" : "у наявності")}");
 
 static void TryDo(string title, Action action)
 {
     try
     {
         action();
-        Console.WriteLine($"[ПОМИЛКА] {title}: виняток НЕ спрацював — інваріант пропущено!");
+        Console.WriteLine($"[ПОМИЛКА] {title}: виняток НЕ спрацював!");
     }
     catch (Exception ex)
     {
-        Console.WriteLine($"[ПЕРЕВІРЕНО] {title}: {ex.GetType().Name} -> {ex.Message}");
+        Console.WriteLine($"[ПЕРЕВІРЕНО] {title}: {ex.Message}");
     }
 }
