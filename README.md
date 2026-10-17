@@ -18,7 +18,11 @@ CrossApp/
 ├── src/
 │   ├── Core/
 │   │   ├── Abstractions/
-│   │   │   └── IBookStore.cs
+│   │   │   ├── IBookStore.cs
+│   │   │   └── INotificationSink.cs
+│   │   ├── Events/
+│   │   │   ├── LibraryChangeKind.cs
+│   │   │   └── LibraryChangedEventArgs.cs
 │   │   ├── Services/
 │   │   │   └── LendingService.cs
 │   │   ├── Storage/
@@ -45,6 +49,10 @@ CrossApp/
 │   │   ├── SampleData.cs
 │   │   └── EnvironmentInfo.cs
 │   └── Cli/
+│       ├── Notifications/
+│       │   ├── ChangeFormatter.cs
+│       │   ├── ConsoleSink.cs
+│       │   └── FileSink.cs
 │       ├── StoreFactory.cs
 │       └── Program.cs
 └── publish/   
@@ -67,6 +75,14 @@ dotnet run --project src/Cli -- --file --cache       # CachingBookStore пове
 dotnet run --project src/Cli -- --factory --file     # той самий вибір, але через StoreFactory
 ```
 Файл `data/library.json` створюється поруч зі зібраним застосунком: `src/Cli/bin/Debug/net10.0/data/library.json`.
+
+**ЛР6: події**
+```
+dotnet run --project src/Cli                                   # події в консолі та в logs/app.log
+dotnet run --project src/Cli -- --file --cache                 # те саме поверх FileBookStore з кешем
+dotnet run --project src/Cli -- --import data/sample.csv       # файл для звіту про пропущені рядки (Action<string>)
+```
+Лог створюється кодом поруч зі зібраним застосунком: `src/Cli/bin/Debug/net10.0/logs/app.log` (і `logs/sink.log` для додаткового завдання 1). Рядки дописуються, кожен запуск починається з `--- запуск ... ---`.
 ## Публікація застосунку
 **Self-contained публікація під Windows**
 ```
@@ -152,6 +168,42 @@ var service = new LendingService(store);
 
 **Що зміниться з БД (ЛР11):** з'явиться ще одна реалізація, наприклад `EfBookStore : IBookStore` поверх `DbContext`, і в composition root зміниться один рядок `new ...`. `BookCopy`, `IBookStore` і `LendingService` залишаться без змін.
 
+## Доменні події (ЛР6)
+
+**Що вважається подією:** кожна успішна зміна стану фонду бібліотеки.
+* `BookAdded` — у фонд додано новий примірник (`LendingService.AddBook`).
+* `CopyIssued` — примірник видано читачу (`IssueCopy(id, readerId, loanDays = 14)`); у події є `ReaderId` і `DueDate`.
+* `CopyReturned` — примірник повернули (`ReturnCopy`).
+
+Пошук і перегляд (`Find`, `All`, `Search`) стан не змінюють, тому подій не дають.
+
+**Дані події** (`Core/Events/LibraryChangedEventArgs.cs`, нащадок `EventArgs`): `CopyId`, `Kind`, `Title`, `ReaderId?`, `DueDate?`, `At`.
+
+**Оголошення і підняття** (`Core/Services/LendingService.cs`):
+```csharp
+public event EventHandler<LibraryChangedEventArgs>? Changed;
+
+private void OnChanged(BookCopy copy, LibraryChangeKind kind, string? readerId = null, DateOnly? dueDate = null)
+{
+    var change = new LibraryChangedEventArgs(copy.Id, kind, copy.Title, readerId, dueDate);
+    Changed?.Invoke(this, change);
+    foreach (var sink in _sinks)
+        sink.Notify(change);
+}
+```
+`OnChanged` викликається останнім рядком кожної змінюючої операції, після `copy.Issue()` / `copy.Return()` і `_store.Update(...)`. Якщо інваріант кинув виняток, до `OnChanged` справа не доходить, і повідомлення немає.
+
+**Підписники в Cli** (`src/Cli/Program.cs`):
+1. Локальний метод `OnLibraryChanged` — друкує рядок у консоль і дописує його в `logs/app.log`. Запис у файл обгорнутий у `try/catch`, щоб збій логування не зламав операцію.
+2. Лямбда-лічильник `service.Changed += (_, _) => changes++;` — замикання над локальною змінною `changes`.
+3. Тимчасовий `orderProbe`, збережений у змінну, показує порядок виклику (1 → 2 → 3) і відписується через ту саму змінну.
+
+**Відписка:** `service.Changed -= OnLibraryChanged;` після цього `ReturnCopy` виконується, стан змінюється, але рядка в консолі та в лозі немає; лічильник збільшується на 1.
+
+**Хто підписується далі:** зараз консоль і файл; на ЛР10 — логер проєкту Api; на ЛР12 — компонент Blazor, який оновлюватиме таблицю; на ЛР8 — тест, що перевіряє, що операція дала подію.
+
+**Перевірки:** у `src/Core` немає `Console` і `logs` (пошук нічого не знаходить); подія оголошена як `event`, а не публічне поле делегата; `Func<BookCopy, bool>` у `LendingService.Search` для випадку, коли потрібно отримати значення.
+
 <details>
 <summary><b>Додаткові завдання</b></summary>
 
@@ -181,5 +233,9 @@ JSON-імпортер (BookJsonImporter): Виконано
 Декоратор `CachingBookStore`: Виконано. Приймає будь-який `IBookStore` у конструкторі, кешує `List()` і `GetById()`, скидає кеш після `Add/Update/Remove`, рахує влучання і промахи (`--cache`).  
 Пошук з `Func<BookCopy, bool>`: Виконано. `LendingService.Search(predicate)`, наприклад `service.Search(c => !c.IsIssued)`.  
 Фабрика `StoreFactory.Create(args)`: Виконано (`--factory`). Порівняння: варіант «усе в Program.cs» наочніший, бо весь вибір видно в точці входу; фабрика зручніша, коли комбінацій більше (файл, кеш, згодом БД), і її можна перевикористати в Api. Обидва варіанти лежать у проєкті Cli, тобто залишаються частиною composition root.  
+**Лабораторна робота 6**  
+`INotificationSink` з `ConsoleSink` і `FileSink`: Виконано. Інтерфейс у `Core/Abstractions`, реалізації у `Cli/Notifications`; Cli передає їх у конструктор `new LendingService(store, [new ConsoleSink(), new FileSink(path)])`. Порівняння: sink — обов'язкова залежність, яку видно в конструкторі, і сервіс сам її викликає; подія — необов'язкова, підписників може бути скільки завгодно або жодного, їх можна додавати й прибирати під час роботи (`+=` / `-=`).  
+`Action<string>` у методі імпорту: Виконано. `BookCsvImporter.Load(path, onSkipped)` і `MixedCsvImporter.Load(path, onSkipped)` викликають `onSkipped` для кожного пропущеного рядка; Cli друкує їх і рахує.  
+Пояснення `async void` в обробнику події: робиться письмово від руки.  
 
 </details>

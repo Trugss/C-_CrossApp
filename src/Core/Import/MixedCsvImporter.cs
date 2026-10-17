@@ -8,7 +8,7 @@ public static class MixedCsvImporter
 {
     private const char Separator = ';';
 
-    public static LibraryBatchResult Load(string path)
+    public static LibraryBatchResult Load(string path, Action<string>? onSkipped = null)
     {
         var books = new List<BookDto>();
         var readers = new List<ReaderDto>();
@@ -36,7 +36,9 @@ public static class MixedCsvImporter
                     readers.Add(r.Value);
                     break;
                 case ParseFailed f:
-                    errors.Add($"рядок {num}: {f.Reason}");
+                    var error = $"рядок {num}: {f.Reason}";
+                    errors.Add(error);
+                    onSkipped?.Invoke(error);
                     break;
             }
         }
