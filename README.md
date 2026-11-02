@@ -204,6 +204,42 @@ private void OnChanged(BookCopy copy, LibraryChangeKind kind, string? readerId =
 
 **Перевірки:** у `src/Core` немає `Console` і `logs` (пошук нічого не знаходить); подія оголошена як `event`, а не публічне поле делегата; `Func<BookCopy, bool>` у `LendingService.Search` для випадку, коли потрібно отримати значення.
 
+## Звіти через LINQ (ЛР7)
+
+Уся логіка звітів лежить у `src/Core/Reports/ReportService.cs`. Методи приймають `IEnumerable<T>` (примірники, видачі, читачів), а повертають `IReadOnlyList<DTO>` або один DTO-підсумок. `Product`/`BookCopy` назовні не віддається. У `src/Cli` (`Program.cs` і `Reports/ReportCommands.cs`) немає жодного `Where` чи `GroupBy`, лише виклики `ReportService` і вивід.
+
+| Метод | Питання | Оператори | DTO |
+|---|---|---|---|
+| `TopReaders(loans, n)` | хто з читачів брав найбільше книжок? | `GroupBy`, `Select`, `TopBy` (`OrderByDescending` + `ThenBy` + `Take`) | `ReaderLoanLine` |
+| `Overdue(loans, today)` | які видачі прострочені (`DueOn < today`)? | `Where`, `Select`, `OrderByDescending`, `ThenBy` | `OverdueLine` |
+| `ByGenre(copies)` | як фонд розподілений за жанрами? | `GroupBy` (`OrdinalIgnoreCase`), `Select`, `Count`, `Distinct`, `OrderByDescending`, `ThenBy` | `GroupSummary` |
+| `Totals(copies)` | скільки примірників і видань, середня і максимальна кількість примірників на видання? | `ToList`, `GroupBy`, `Count`, `Average`, `Max` | `LibraryTotals` |
+| `ScarceEditions(copies, threshold)` | яких видань не вистачає (доступних < N)? | `GroupBy`, `Select`, `Where`, `OrderBy`, `ThenBy` | `EditionLine` |
+| `TopEditions(copies, n)` | яких видань найбільше примірників? | `GroupBy`, `Select`, `TopBy` | `EditionLine` |
+
+Для «Бібліотеки» у `Loan` з'явився термін повернення `DueOn` (`Loan.Open(..., loanDays = 14)`, у `LoanDto` необов'язкове поле `DueOn`) і метод `IsOverdue(today)`, а у `BookCopy` — необов'язковий `Genre`. `SampleData` має 20 примірників у 5 жанрах, 6 читачів і 17 видач (3 з них прострочені). Дати видач рахуються від сьогоднішнього дня, тому прострочені видачі є в будь-який день запуску.
+
+```
+dotnet run --project src/Cli -- report-top            # топ-5 читачів (--n 3 змінює розмір)
+dotnet run --project src/Cli -- report-overdue
+dotnet run --project src/Cli -- report-genres
+dotnet run --project src/Cli -- report-sum
+dotnet run --project src/Cli -- report-low            # видання без доступних примірників (--n 2 змінює поріг)
+dotnet run --project src/Cli -- report-editions
+dotnet run --project src/Cli -- report-deferred       # демо відкладеного виконання
+dotnet run --project src/Cli -- report-all            # усі звіти поспіль
+dotnet run --project src/Cli -- report-sum --empty    # порожнє джерело: без винятку, нулі
+```
+Без команди запускається сценарій ЛР5–6, як і раніше. Прапорці `--file`, `--cache`, `--n`, `--import` не сприймаються як назва звіту (`ReportCommands.ParseCommand` пропускає їх разом зі значенням).
+
+**Топ-N стабільний:** після основного ключа завжди йде `ThenBy` за унікальним id (`StringComparer.Ordinal`). У R-002 і R-003 по 4 видачі, і вони завжди виходять саме в порядку R-002, R-003.
+
+**Порожнє джерело:** `Totals` спершу робить `ToList()` і для `Count == 0` повертає `LibraryTotals.Empty`, бо `Average` і `Max` на порожній послідовності кидають `InvalidOperationException`. Решта звітів на порожньому джерелі просто повертають порожній список.
+
+### Коли виконується запит (відкладене виконання)
+
+`DeferredExecutionDemo.Run` (`src/Core/Reports/DeferredExecutionDemo.cs`, команда `report-deferred`) бере локальну копію `service.All().ToList()` і будує `var query = source.Where(c => !c.IsIssued)`. У цей момент предикат не викликався жодного разу (лічильник = 0): `Where` лише створює об'єкт-запит, який пам'ятає джерело й умову. Запит виконується, коли його перебирають, тобто в кожному виклику `Count()` чи `ToList()`, і щоразу заново проходить поточний вміст `source`. Тому перший `Count()` дає **15** доступних примірників, а після `source.Add(...)` другий `Count()` дає **16**: це той самий запит, але джерело вже інше. `ToList()` один раз виконує запит і копіює результат, тож після `source.Clear()` у знімку лишається **16**, а сам запит повертає **0**. Предикат за всю демонстрацію викликався 62 рази (20 + 21 + 21 + 0). Саме тому всі методи `ReportService` закінчуються `ToList()`: Cli отримує готовий список і не перезапускає запит (а з `FileBookStore` — не перечитує файл).
+
 <details>
 <summary><b>Додаткові завдання</b></summary>
 
@@ -237,5 +273,21 @@ JSON-імпортер (BookJsonImporter): Виконано
 `INotificationSink` з `ConsoleSink` і `FileSink`: Виконано. Інтерфейс у `Core/Abstractions`, реалізації у `Cli/Notifications`; Cli передає їх у конструктор `new LendingService(store, [new ConsoleSink(), new FileSink(path)])`. Порівняння: sink — обов'язкова залежність, яку видно в конструкторі, і сервіс сам її викликає; подія — необов'язкова, підписників може бути скільки завгодно або жодного, їх можна додавати й прибирати під час роботи (`+=` / `-=`).  
 `Action<string>` у методі імпорту: Виконано. `BookCsvImporter.Load(path, onSkipped)` і `MixedCsvImporter.Load(path, onSkipped)` викликають `onSkipped` для кожного пропущеного рядка; Cli друкує їх і рахує.  
 Пояснення `async void` в обробнику події: робиться письмово від руки.  
+**Лабораторна робота 7**  
+Join / GroupJoin: Виконано. `ReportService.ReaderActivity` — `GroupJoin` читачі × видачі у `ReaderActivity` (читач без видач теж у звіті, `report-readers`); `ReportService.OverdueDetails` — `Join` видачі × примірники × читачі у `OverdueDetail` з назвою книжки та ім'ям читача (`report-overdue-details`).  
+Метод-розширення `TopBy<T>(this IEnumerable<T>, Func<T,int> key, int n, Func<T,string> tieBreaker)`: Виконано (`src/Core/Reports/EnumerableExtensions.cs`). Використаний у `TopReaders` і `TopEditions`. Другий ключ зроблено обов'язковим параметром, щоб топ-N без нього просто не можна було написати.  
+Синтаксис запитів: Виконано. `ReportService.ByGenreQuery` — той самий звіт, що `ByGenre`, через `from c in copies group c by c.Genre into g let summary = ... orderby summary.Copies descending, summary.Key select summary`. Команда `report-query` друкує результат і перевіряє `SequenceEqual` з `ByGenre` (records порівнюються за значенням) — `True`. Порівняння: у синтаксисі запитів `group ... into`, `let` і `orderby ... descending, ...` читаються як SQL, і проміжне значення (`summary`) не треба повторювати; методний синтаксис коротший для простих ланцюжків і дає те, чого немає в query-синтаксисі: компаратор для `GroupBy`/`ThenBy` (`StringComparer.OrdinalIgnoreCase`), `Take`, `Distinct`, `ToList`. Тому query-варіант все одно взято в дужки і закінчено `.ToList()`, а в проєкті основним лишається методний синтаксис.  
+Stopwatch на 100 000 записів: Виконано (`ReportBenchmark.Run`, `SampleData.Generate`, команда `report-bench`). Звіт «доступні примірники за жанром», 3 прогріви, середнє з 20 запусків. Зразок виміру в контейнері Linux (числа між запусками коливаються на 1–3 мс):
+
+| Варіант | мс |
+|---|---|
+| один ланцюжок, `ToList` у кінці | 6.4 |
+| `ToList` після `Where` | 7.1 |
+| `ToList` після кожного кроку | 7.4 |
+| запит без `ToList`, використано 3 рази | 22.3 |
+| `ToList` один раз, використано 3 рази | 8.7 |
+
+Висновок: `ToList` у середині ланцюжка не пришвидшує, а додає проміжний список і виділення пам'яті (у кращому разі не змінює час, бо `GroupBy` усе одно буферизує все). Дорого коштує інше — повторне перебирання не матеріалізованого запиту: три використання = три повні проходи, приблизно втричі довше, ніж один `ToList` і робота зі списком.  
+
 
 </details>

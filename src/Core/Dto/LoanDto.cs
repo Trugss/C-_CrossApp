@@ -5,5 +5,6 @@ public sealed record LoanDto(
     string BookCopyId,
     string ReaderId,
     DateTime IssuedOn,
-    DateTime? ReturnedOn
+    DateTime? ReturnedOn,
+    DateTime? DueOn = null
 );

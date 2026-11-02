@@ -33,6 +33,14 @@ Console.WriteLine($"Сховище: {(store is CachingBookStore caching ? $"{nam
 if (useFile)
     Console.WriteLine($"Файл даних: {dataPath}");
 
+var command = ReportCommands.ParseCommand(args) ?? "demo";
+if (command != "demo")
+{
+    Console.WriteLine();
+    ReportCommands.Run(command, service, args);
+    return;
+}
+
 var logPath = Path.Combine(AppContext.BaseDirectory, "logs", "app.log");
 Directory.CreateDirectory(Path.GetDirectoryName(logPath)!);
 File.AppendAllText(logPath, $"--- запуск {DateTime.Now:yyyy-MM-dd HH:mm:ss} ---{Environment.NewLine}");

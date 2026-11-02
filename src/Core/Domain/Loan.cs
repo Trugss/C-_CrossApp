@@ -4,26 +4,32 @@ namespace Core.Domain;
 
 public sealed class Loan
 {
+    public const int DefaultLoanDays = 14;
+
     public string Id { get; }
     public string BookCopyId { get; }
     public string ReaderId { get; }
     public DateTime IssuedOn { get; }
+    public DateTime DueOn { get; }
     public DateTime? ReturnedOn { get; private set; }
     public LoanStatus Status { get; private set; }
 
     public bool IsClosed => ReturnedOn.HasValue || Status == LoanStatus.Returned || Status == LoanStatus.Lost;
 
-    private Loan(string id, string bookCopyId, string readerId, DateTime issuedOn, DateTime? returnedOn, LoanStatus status)
+    private Loan(string id, string bookCopyId, string readerId, DateTime issuedOn, DateTime dueOn, DateTime? returnedOn, LoanStatus status)
     {
         Id = id;
         BookCopyId = bookCopyId;
         ReaderId = readerId;
         IssuedOn = issuedOn;
+        DueOn = dueOn;
         ReturnedOn = returnedOn;
         Status = status;
     }
 
-    public static Loan Open(string id, BookCopy copy, string readerId, DateTime issuedOn)
+    public bool IsOverdue(DateTime today) => !IsClosed && today.Date > DueOn.Date;
+
+    public static Loan Open(string id, BookCopy copy, string readerId, DateTime issuedOn, int loanDays = DefaultLoanDays)
     {
         if (string.IsNullOrWhiteSpace(id))
             throw new ArgumentException("Ідентифікатор видачі не може бути порожнім", nameof(id));
@@ -33,9 +39,12 @@ public sealed class Loan
         if (string.IsNullOrWhiteSpace(readerId))
             throw new ArgumentException("Ідентифікатор читача не може бути порожнім", nameof(readerId));
 
+        if (loanDays <= 0)
+            throw new ArgumentOutOfRangeException(nameof(loanDays), loanDays, "Строк видачі має бути додатним числом днів");
+
         copy.Issue();
 
-        return new Loan(id.Trim(), copy.Id, readerId.Trim(), issuedOn, null, LoanStatus.Active);
+        return new Loan(id.Trim(), copy.Id, readerId.Trim(), issuedOn, issuedOn.AddDays(loanDays), null, LoanStatus.Active);
     }
 
     public void Close(BookCopy copy, DateTime returnedOn)
@@ -78,7 +87,7 @@ public sealed class Loan
         };
     }
 
-    public LoanDto ToDto() => new(Id, BookCopyId, ReaderId, IssuedOn, ReturnedOn);
+    public LoanDto ToDto() => new(Id, BookCopyId, ReaderId, IssuedOn, ReturnedOn, DueOn);
 
     public static Loan FromDto(LoanDto dto)
     {
@@ -97,11 +106,18 @@ public sealed class Loan
                 dto.ReturnedOn.Value,
                 $"Дата повернення ({dto.ReturnedOn:yyyy-MM-dd}) не може бути раніше дати видачі ({dto.IssuedOn:yyyy-MM-dd})");
 
+        var dueOn = dto.DueOn ?? dto.IssuedOn.AddDays(DefaultLoanDays);
+        if (dueOn < dto.IssuedOn)
+            throw new ArgumentOutOfRangeException(
+                nameof(dto),
+                dueOn,
+                $"Термін повернення ({dueOn:yyyy-MM-dd}) не може бути раніше дати видачі ({dto.IssuedOn:yyyy-MM-dd})");
+
         var initialStatus = dto.ReturnedOn.HasValue ? LoanStatus.Returned : LoanStatus.Active;
 
-        return new Loan(dto.Id.Trim(), dto.BookCopyId.Trim(), dto.ReaderId.Trim(), dto.IssuedOn, dto.ReturnedOn, initialStatus);
+        return new Loan(dto.Id.Trim(), dto.BookCopyId.Trim(), dto.ReaderId.Trim(), dto.IssuedOn, dueOn, dto.ReturnedOn, initialStatus);
     }
 
     public override string ToString() =>
-        $"[Видача {Id}] Примірник: {BookCopyId} -> Читач: {ReaderId} | Видано: {IssuedOn:yyyy-MM-dd} | Статус: {Status}{(ReturnedOn.HasValue ? $" (Повернено {ReturnedOn:yyyy-MM-dd})" : "")}";
+        $"[Видача {Id}] Примірник: {BookCopyId} -> Читач: {ReaderId} | Видано: {IssuedOn:yyyy-MM-dd} | Термін: {DueOn:yyyy-MM-dd} | Статус: {Status}{(ReturnedOn.HasValue ? $" (Повернено {ReturnedOn:yyyy-MM-dd})" : "")}";
 }

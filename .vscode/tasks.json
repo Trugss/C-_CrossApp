@@ -1,0 +1,185 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "build",
+      "type": "shell",
+      "command": "dotnet build",
+      "group": "build",
+      "problemMatcher": "$msCompile",
+      "presentation": {
+        "panel": "shared",
+        "clear": true,
+        "showReuseMessage": false
+      }
+    },
+    {
+      "label": "ЛР7: report-genres",
+      "type": "shell",
+      "command": "dotnet run --no-build --project src/Cli -- report-genres",
+      "problemMatcher": [],
+      "presentation": {
+        "panel": "shared",
+        "clear": false,
+        "showReuseMessage": false,
+        "echo": true
+      }
+    },
+    {
+      "label": "ЛР7: report-sum",
+      "type": "shell",
+      "command": "dotnet run --no-build --project src/Cli -- report-sum",
+      "problemMatcher": [],
+      "presentation": {
+        "panel": "shared",
+        "clear": false,
+        "showReuseMessage": false,
+        "echo": true
+      }
+    },
+    {
+      "label": "ЛР7: report-top",
+      "type": "shell",
+      "command": "dotnet run --no-build --project src/Cli -- report-top",
+      "problemMatcher": [],
+      "presentation": {
+        "panel": "shared",
+        "clear": false,
+        "showReuseMessage": false,
+        "echo": true
+      }
+    },
+    {
+      "label": "ЛР7: report-overdue",
+      "type": "shell",
+      "command": "dotnet run --no-build --project src/Cli -- report-overdue",
+      "problemMatcher": [],
+      "presentation": {
+        "panel": "shared",
+        "clear": false,
+        "showReuseMessage": false,
+        "echo": true
+      }
+    },
+    {
+      "label": "ЛР7: report-low",
+      "type": "shell",
+      "command": "dotnet run --no-build --project src/Cli -- report-low",
+      "problemMatcher": [],
+      "presentation": {
+        "panel": "shared",
+        "clear": false,
+        "showReuseMessage": false,
+        "echo": true
+      }
+    },
+    {
+      "label": "ЛР7: report-editions",
+      "type": "shell",
+      "command": "dotnet run --no-build --project src/Cli -- report-editions",
+      "problemMatcher": [],
+      "presentation": {
+        "panel": "shared",
+        "clear": false,
+        "showReuseMessage": false,
+        "echo": true
+      }
+    },
+    {
+      "label": "ЛР7: report-deferred",
+      "type": "shell",
+      "command": "dotnet run --no-build --project src/Cli -- report-deferred",
+      "problemMatcher": [],
+      "presentation": {
+        "panel": "shared",
+        "clear": false,
+        "showReuseMessage": false,
+        "echo": true
+      }
+    },
+    {
+      "label": "ЛР7: report-readers",
+      "type": "shell",
+      "command": "dotnet run --no-build --project src/Cli -- report-readers",
+      "problemMatcher": [],
+      "presentation": {
+        "panel": "shared",
+        "clear": false,
+        "showReuseMessage": false,
+        "echo": true
+      }
+    },
+    {
+      "label": "ЛР7: report-overdue-details",
+      "type": "shell",
+      "command": "dotnet run --no-build --project src/Cli -- report-overdue-details",
+      "problemMatcher": [],
+      "presentation": {
+        "panel": "shared",
+        "clear": false,
+        "showReuseMessage": false,
+        "echo": true
+      }
+    },
+    {
+      "label": "ЛР7: report-query",
+      "type": "shell",
+      "command": "dotnet run --no-build --project src/Cli -- report-query",
+      "problemMatcher": [],
+      "presentation": {
+        "panel": "shared",
+        "clear": false,
+        "showReuseMessage": false,
+        "echo": true
+      }
+    },
+    {
+      "label": "ЛР7: report-bench",
+      "type": "shell",
+      "command": "dotnet run --no-build --project src/Cli -- report-bench",
+      "problemMatcher": [],
+      "presentation": {
+        "panel": "shared",
+        "clear": false,
+        "showReuseMessage": false,
+        "echo": true
+      }
+    },
+    {
+      "label": "ЛР7: report-sum --empty",
+      "type": "shell",
+      "command": "dotnet run --no-build --project src/Cli -- report-sum --empty",
+      "problemMatcher": [],
+      "presentation": {
+        "panel": "shared",
+        "clear": false,
+        "showReuseMessage": false,
+        "echo": true
+      }
+    },
+    {
+      "label": "ЛР7: report-low --empty",
+      "type": "shell",
+      "command": "dotnet run --no-build --project src/Cli -- report-low --empty",
+      "problemMatcher": [],
+      "presentation": {
+        "panel": "shared",
+        "clear": false,
+        "showReuseMessage": false,
+        "echo": true
+      }
+    },
+    {
+      "label": "ЛР7: report-all",
+      "type": "shell",
+      "command": "dotnet run --no-build --project src/Cli -- report-all",
+      "problemMatcher": [],
+      "presentation": {
+        "panel": "shared",
+        "clear": false,
+        "showReuseMessage": false,
+        "echo": true
+      }
+    }
+  ]
+}
