@@ -1,0 +1,30 @@
+[
+  {
+    "id": "CT-001",
+    "isbn": "978-966-03-3001-1",
+    "isIssued": false,
+    "title": "Енеїда",
+    "genre": "Поезія"
+  },
+  {
+    "id": "CT-002",
+    "isbn": "978-966-03-3001-1",
+    "isIssued": false,
+    "title": "Енеїда",
+    "genre": "Поезія"
+  },
+  {
+    "id": "CT-003",
+    "isbn": "978-966-03-3002-8",
+    "isIssued": true,
+    "title": "Intermezzo",
+    "genre": "Проза"
+  },
+  {
+    "id": "CT-004",
+    "isbn": "978-966-03-3003-5",
+    "isIssued": ні,
+    "title": "Земля",
+    "genre": "Проза"
+  }
+]

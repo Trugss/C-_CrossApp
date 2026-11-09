@@ -1,0 +1,121 @@
+[
+  {
+    "id": "CT-001",
+    "isbn": "978-966-03-3001-1",
+    "isIssued": false,
+    "title": "Енеїда",
+    "genre": "Поезія"
+  },
+  {
+    "id": "CT-002",
+    "isbn": "978-966-03-3001-1",
+    "isIssued": false,
+    "title": "Енеїда",
+    "genre": "Поезія"
+  },
+  {
+    "id": "CT-003",
+    "isbn": "978-966-03-3002-8",
+    "isIssued": true,
+    "title": "Intermezzo",
+    "genre": "Проза"
+  },
+  {
+    "id": "CT-004",
+    "isbn": "978-966-03-3003-5",
+    "isIssued": false,
+    "title": "Земля",
+    "genre": "Проза"
+  },
+  {
+    "id": "CT-005",
+    "isbn": "978-966-03-3003-5",
+    "isIssued": false,
+    "title": "Земля",
+    "genre": "Проза"
+  },
+  {
+    "id": "CT-006",
+    "isbn": "978-966-03-3004-2",
+    "isIssued": false,
+    "title": "Камінний господар",
+    "genre": "Драма"
+  },
+  {
+    "id": "CT-007",
+    "isbn": "978-966-03-3005-9",
+    "isIssued": false,
+    "title": "Вершники",
+    "genre": "Проза"
+  },
+  {
+    "id": "CT-008",
+    "isbn": "978-966-03-3006-6",
+    "isIssued": false,
+    "title": "Собор",
+    "genre": "Проза"
+  },
+  {
+    "id": "CT-009",
+    "isbn": "978-966-03-3007-3",
+    "isIssued": false,
+    "title": "Зачарована Десна",
+    "genre": "Проза"
+  },
+  {
+    "id": "CT-010",
+    "isbn": "978-966-03-3008-0",
+    "isIssued": false,
+    "title": "Мина Мазайло",
+    "genre": "Драма"
+  },
+  {
+    "id": "CT-011",
+    "isbn": "978-966-03-3009-7",
+    "isIssued": false,
+    "title": "Народний Малахій",
+    "genre": "Драма"
+  },
+  {
+    "id": "CT-012",
+    "isbn": "978-1-61729-886-2",
+    "isIssued": false,
+    "title": "Concurrency in .NET",
+    "genre": "Програмування"
+  },
+  {
+    "id": "CT-013",
+    "isbn": "978-1-49204-148-6",
+    "isIssued": false,
+    "title": "Async in C#",
+    "genre": "Програмування"
+  },
+  {
+    "id": "CT-014",
+    "isbn": "978-1-61729-453-6",
+    "isIssued": false,
+    "title": "C# in Depth",
+    "genre": "Програмування"
+  },
+  {
+    "id": "CT-015",
+    "isbn": "978-0-13-468599-1",
+    "isIssued": false,
+    "title": "Clean Architecture",
+    "genre": "Архітектура ПЗ"
+  },
+  {
+    "id": "CT-016",
+    "isbn": "978-1-61729-962-3",
+    "isIssued": false,
+    "title": "Unit Testing Principles",
+    "genre": "Програмування"
+  },
+  {
+    "id": "CT-017",
+    "isbn": "978-1-61729-962-3",
+    "isIssued": false,
+    "title": "Unit Testing Principles",
+    "genre": "Програмування"
+  }
+]

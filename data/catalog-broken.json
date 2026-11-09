@@ -1,0 +1,44 @@
+[
+  {
+    "id": "CT-001",
+    "isbn": "978-966-03-3001-1",
+    "isIssued": false,
+    "title": "Енеїда",
+    "genre": "Поезія"
+  },
+  {
+    "id": "CT-002",
+    "isbn": "978-966-03-3001-1",
+    "isIssued": false,
+    "title": "Енеїда",
+    "genre": "Поезія"
+  },
+  {
+    "id": "CT-003",
+    "isbn": "978-966-03-3002-8",
+    "isIssued": true,
+    "title": "Intermezzo",
+    "genre": "Проза"
+  },
+  {
+    "id": "CT-004",
+    "isbn": "",
+    "isIssued": false,
+    "title": "Земля",
+    "genre": "Проза"
+  },
+  {
+    "id": "CT-005",
+    "isbn": "978-966-03-3003-5",
+    "isIssued": false,
+    "title": "Земля",
+    "genre": "Проза"
+  },
+  {
+    "id": "CT-006",
+    "isbn": "978-966-03-3004-2",
+    "isIssued": false,
+    "title": "Камінний господар",
+    "genre": "Драма"
+  }
+]

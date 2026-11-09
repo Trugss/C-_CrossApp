@@ -39,7 +39,6 @@ public static class SampleData
         new("R-006", "Богдан Лисенко", "bohdan.lysenko@example.com"),
     ];
 
-    // Дати рахуються від today, щоб прострочені видачі були в будь-який день запуску.
     public static IReadOnlyList<Loan> Loans(DateTime today)
     {
         var d = today.Date;
@@ -74,7 +73,6 @@ public static class SampleData
 
     private static readonly string[] Genres = ["Поезія", "Проза", "Драма", "Програмування", "Архітектура ПЗ", "Історія", "Фантастика"];
 
-    // Синтетичний фонд для вимірювань (Додаткове завдання 4): count примірників на count / 4 видань.
     public static IReadOnlyList<BookCopy> Generate(int count, int seed = 42)
     {
         ArgumentOutOfRangeException.ThrowIfNegative(count);

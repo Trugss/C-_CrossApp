@@ -59,6 +59,64 @@ public sealed class LendingService(IBookStore store, IEnumerable<INotificationSi
         return copy;
     }
 
+    public Task<int> ImportAsync(ICatalogImporter importer, string path, CancellationToken ct = default) =>
+        ImportAsync(importer, path, null, ct);
+
+    public async Task<int> ImportAsync(ICatalogImporter importer, string path, IProgress<int>? progress,
+        CancellationToken ct = default)
+    {
+        ArgumentNullException.ThrowIfNull(importer);
+        ArgumentException.ThrowIfNullOrWhiteSpace(path);
+
+        var items = await importer.LoadAsync(path, ct);
+        var added = 0;
+        var lastPercent = -1;
+
+        for (var i = 0; i < items.Count; i++)
+        {
+            ct.ThrowIfCancellationRequested();
+            if (TryAdd(items[i]))
+                added++;
+
+            var percent = (i + 1) * 100 / items.Count;
+            if (percent != lastPercent)
+            {
+                progress?.Report(percent);
+                lastPercent = percent;
+            }
+        }
+
+        if (items.Count == 0)
+            progress?.Report(100);
+
+        return added;
+    }
+
+    public async Task<int> ImportStreamAsync(ICatalogImporter importer, string path, CancellationToken ct = default)
+    {
+        ArgumentNullException.ThrowIfNull(importer);
+        ArgumentException.ThrowIfNullOrWhiteSpace(path);
+
+        var added = 0;
+        await foreach (var item in importer.StreamAsync(path, ct).WithCancellation(ct))
+        {
+            if (TryAdd(item))
+                added++;
+        }
+
+        return added;
+    }
+
+    private bool TryAdd(BookCopy item)
+    {
+        if (_store.GetById(item.Id) is not null)
+            return false;
+
+        _store.Add(item);
+        OnChanged(item, LibraryChangeKind.BookAdded);
+        return true;
+    }
+
     public IReadOnlyList<BookCopy> All() => _store.List();
 
     public BookCopy? Find(string id) => _store.GetById(id);
@@ -71,5 +129,5 @@ public sealed class LendingService(IBookStore store, IEnumerable<INotificationSi
 
     private BookCopy GetRequired(string id) =>
         _store.GetById(id)
-            ?? throw new InvalidOperationException($"Примірника з id='{id}' немає у сховищі");
+            ?? throw new DomainException($"Примірника з id='{id}' немає у сховищі");
 }

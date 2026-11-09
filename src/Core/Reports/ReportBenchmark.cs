@@ -3,7 +3,6 @@ using Core.Domain;
 
 namespace Core.Reports;
 
-// Додаткове завдання 4: один і той самий звіт «доступні примірники за жанром» у різних варіантах.
 public static class ReportBenchmark
 {
     public static IReadOnlyList<BenchmarkResult> Run(IReadOnlyList<BookCopy> copies, int repeats = 20)

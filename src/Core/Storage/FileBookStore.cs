@@ -57,7 +57,7 @@ public sealed class FileBookStore(string path) : IBookStore
         EnsureLoaded();
 
         if (_cache.ContainsKey(item.Id))
-            throw new InvalidOperationException($"Примірник з id='{item.Id}' уже існує у сховищі");
+            throw new DomainException($"Примірник з id='{item.Id}' уже існує у сховищі");
 
         _cache.Add(item.Id, item);
         Flush();

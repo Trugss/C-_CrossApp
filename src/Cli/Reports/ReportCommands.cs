@@ -9,9 +9,10 @@ public static class ReportCommands
     public const string Usage =
         "report-top | report-overdue | report-genres | report-sum | report-low | report-editions\n" +
         "report-readers | report-overdue-details | report-query | report-deferred | report-bench | report-all\n" +
+        "import [--path <файл>] [--stream] [--delay <мс>] [--cancel-after <мс>] [--timeout <мс>]\n" +
         "прапорці: --n <число> (розмір топу / поріг / кількість записів), --empty (порожнє джерело)";
 
-    private static readonly string[] OptionsWithValue = ["--import", "--n"];
+    private static readonly string[] OptionsWithValue = ["--import", "--n", "--path", "--delay", "--cancel-after", "--timeout"];
 
     public static string? ParseCommand(string[] args)
     {

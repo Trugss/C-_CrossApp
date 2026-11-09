@@ -33,7 +33,7 @@ public sealed class BookCopy
     public void Issue()
     {
         if (IsIssued)
-            throw new InvalidOperationException($"Примірник '{Id}' вже виданий, повторна видача неможлива");
+            throw new DomainException($"Примірник '{Id}' уже видано, повторна видача неможлива");
 
         IsIssued = true;
     }
@@ -41,7 +41,7 @@ public sealed class BookCopy
     public void Return()
     {
         if (!IsIssued)
-            throw new InvalidOperationException($"Примірник '{Id}' зараз не виданий, повернення неможливе");
+            throw new DomainException($"Примірник '{Id}' зараз не виданий, повернення неможливе");
 
         IsIssued = false;
     }
@@ -53,4 +53,4 @@ public sealed class BookCopy
 
     public override string ToString() =>
         $"[Примірник {Id}] ISBN: {Isbn}{(Title.Length > 0 ? $", «{Title}»" : "")}, Стан: {(IsIssued ? "Виданий" : "У наявності")}";
-}
+}

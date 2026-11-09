@@ -55,7 +55,7 @@ public sealed class Loan
             throw new ArgumentException($"Невідповідність примірника: очікується '{BookCopyId}', отримано '{copy.Id}'", nameof(copy));
 
         if (IsClosed)
-            throw new InvalidOperationException($"Видача '{Id}' уже закрита зі статусом {Status}");
+            throw new DomainException($"Видача '{Id}' уже закрита зі статусом {Status}");
 
         if (returnedOn < IssuedOn)
             throw new ArgumentOutOfRangeException(
@@ -80,10 +80,10 @@ public sealed class Loan
             (LoanStatus.Overdue, LoanStatus.Lost)     => LoanStatus.Lost,
 
             (var current, var target) when current == target =>
-                throw new InvalidOperationException($"Видача '{Id}' уже має статус {current}"),
+                throw new DomainException($"Видача '{Id}' уже має статус {current}"),
 
             (var current, var target) =>
-                throw new InvalidOperationException($"Неприпустимий перехід стану видачі '{Id}': з {current} у {target}")
+                throw new DomainException($"Неприпустимий перехід стану видачі '{Id}': з {current} у {target}")
         };
     }
 
@@ -120,4 +120,4 @@ public sealed class Loan
 
     public override string ToString() =>
         $"[Видача {Id}] Примірник: {BookCopyId} -> Читач: {ReaderId} | Видано: {IssuedOn:yyyy-MM-dd} | Термін: {DueOn:yyyy-MM-dd} | Статус: {Status}{(ReturnedOn.HasValue ? $" (Повернено {ReturnedOn:yyyy-MM-dd})" : "")}";
-}
+}

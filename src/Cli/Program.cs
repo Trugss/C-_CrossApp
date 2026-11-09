@@ -34,6 +34,13 @@ if (useFile)
     Console.WriteLine($"Файл даних: {dataPath}");
 
 var command = ReportCommands.ParseCommand(args) ?? "demo";
+if (command == "import")
+{
+    Console.WriteLine();
+    await ImportCommand.RunAsync(service, args);
+    return;
+}
+
 if (command != "demo")
 {
     Console.WriteLine();

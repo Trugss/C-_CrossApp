@@ -2,10 +2,6 @@ using Core.Domain;
 
 namespace Core.Reports;
 
-// Коли виконується запит: рядок з Where лише будує об'єкт-запит (лічильник викликів предиката = 0).
-// Предикат починає викликатися тільки в Count()/ToList(), і щоразу заново проходить поточний вміст source.
-// Тому другий Count() після source.Add(...) бачить новий примірник і дає інше число.
-// ToList() один раз виконує запит і копіює результат, тож source.Clear() знімок уже не змінює.
 public static class DeferredExecutionDemo
 {
     public static DeferredDemoResult Run(IEnumerable<BookCopy> copies)

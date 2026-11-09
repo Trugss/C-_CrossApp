@@ -240,6 +240,50 @@ dotnet run --project src/Cli -- report-sum --empty    # порожнє джер�
 
 `DeferredExecutionDemo.Run` (`src/Core/Reports/DeferredExecutionDemo.cs`, команда `report-deferred`) бере локальну копію `service.All().ToList()` і будує `var query = source.Where(c => !c.IsIssued)`. У цей момент предикат не викликався жодного разу (лічильник = 0): `Where` лише створює об'єкт-запит, який пам'ятає джерело й умову. Запит виконується, коли його перебирають, тобто в кожному виклику `Count()` чи `ToList()`, і щоразу заново проходить поточний вміст `source`. Тому перший `Count()` дає **15** доступних примірників, а після `source.Add(...)` другий `Count()` дає **16**: це той самий запит, але джерело вже інше. `ToList()` один раз виконує запит і копіює результат, тож після `source.Clear()` у знімку лишається **16**, а сам запит повертає **0**. Предикат за всю демонстрацію викликався 62 рази (20 + 21 + 21 + 0). Саме тому всі методи `ReportService` закінчуються `ToList()`: Cli отримує готовий список і не перезапускає запит (а з `FileBookStore` — не перечитує файл).
 
+## Асинхронний імпорт, скасування, доменні винятки, тести (ЛР8)
+
+**Що стало асинхронним.** Лише операції з файлом каталогу: `ICatalogImporter.LoadAsync` / `StreamAsync` (`src/Core/Abstractions/ICatalogImporter.cs`) і їх реалізація `JsonCatalogImporter` (`src/Core/Storage/JsonCatalogImporter.cs`): `FileStream(..., useAsync: true)` + `JsonSerializer.DeserializeAsync`, без `Task.Run`. Сервіс отримав `LendingService.ImportAsync(importer, path, ct)` (імпортер приходить параметром, для кожного доданого примірника піднімається `BookAdded`, наявні id пропускаються, тому повторний імпорт дає 0). `IBookStore`, `LendingService.AddBook/IssueCopy/ReturnCopy` і звіти лишились синхронними: це робота в пам'яті без очікування, асинхронне сховище з'явиться разом з EF Core (ЛР11).
+
+**Скасування.** Токен іде ланцюжком `Cli (cts.Token) → LendingService.ImportAsync → importer.LoadAsync → DeserializeAsync`, а в обох циклах (розбір записів і додавання у сховище) стоїть `ct.ThrowIfCancellationRequested()`. У Cli: `Console.CancelKeyPress` (Ctrl+C) викликає `cts.Cancel()`, `--cancel-after <мс>` викликає `cts.CancelAfter(...)`. `catch (OperationCanceledException)` стоїть першим і друкує «Імпорт скасовано.».
+
+**Помилки.** `Core/DomainException` — порушення бізнес-правила: примірник уже видано, повернення невиданого, примірника немає у сховищі, дубль id, ліміт 5 видач, неприпустимий перехід стану видачі, поганий запис у файлі імпорту («Запис 4: ISBN не може бути порожнім»). `ArgumentException` / `ArgumentOutOfRangeException` лишились для неправильних аргументів методу (порожній читач, `loanDays <= 0`). Технічна помилка формату JSON загортається у `Core/StorageException` з початковим `JsonException` в `InnerException`; `FileNotFoundException` не загортається.
+
+```
+dotnet run --project src/Cli -- import                                      # Імпортовано записів: 17
+dotnet run --project src/Cli -- import --delay 200 --cancel-after 1500      # Імпорт скасовано.
+dotnet run --project src/Cli -- import --delay 200                          # під час імпорту натиснути Ctrl+C
+dotnet run --project src/Cli -- import --path data/catalog-broken.json      # Дані відхилено: Запис 4: ...
+dotnet run --project src/Cli -- import --path data/catalog-malformed.json   # Технічна помилка: ... InnerException: JsonException
+dotnet run --project src/Cli -- import --path data/none.json                # Файл не знайдено
+dotnet run --project src/Cli -- --file import                               # у FileBookStore, вдруге 0
+```
+`--delay <мс>` загортає імпортер у `Cli/Import/SlowCatalogImporter` (затримка `Task.Delay(..., ct)` на кожен запис), щоб імпорт тривав кілька секунд і скасування було видно.
+
+**Тести.** Проєкт `tests/Core.Tests` (xUnit, net10.0) посилається лише на `src/Core`. Сховище в тестах — `InMemoryBookStore`, набір даних — `TestData.Items()` у самому проєкті тестів; диск використовують лише тести з тимчасовим файлом у `Path.GetTempPath()`, який видаляється у `finally`.
+
+```
+dotnet test
+dotnet test --collect:"XPlat Code Coverage"
+```
+
+| Тест | Що перевіряє | Очікуваний результат |
+|---|---|---|
+| `IssueCopy_WhenAlreadyIssued_ThrowsDomainException_AndKeepsState` | повторна видача | `DomainException` «уже видано», стан і події без змін |
+| `ReturnCopy_WhenNotIssued_ThrowsDomainException_AndRaisesNothing` | повернення невиданого примірника | `DomainException`, 0 подій |
+| `IssueCopy_WithNonPositiveLoanDays_...` (Theory 0, -3) | неправильний аргумент | `ArgumentOutOfRangeException`, примірник не виданий |
+| `IssueCopy_WithUnknownId_ThrowsDomainException` | неіснуючий примірник | `DomainException` |
+| `AddBook_RaisesChangedExactlyOnce` | подія ЛР6 | рівно одна подія `BookAdded` з id примірника |
+| `IssueThenReturn_RaisesEventsInOrder_WithReaderOnIssue` | порядок і вміст подій | `CopyIssued`, `CopyReturned`, читач і дата повернення |
+| `ScarceEditions_CountsOnlyBelowThreshold` (Theory 0/1/2/3) | звіт дефіциту на 4 порогах | 0, 1, 2, 4 видання |
+| `TopEditions_IsDeterministic_TieBrokenByIsbn` | детермінований топ-N | `978-BIG`, `978-MID`, `978-ZED` |
+| `Totals_CountsCopiesEditionsAndIssued` / `Totals_OfEmptySource_...` | підсумки | 8/4/2.0/3/3 і `LibraryTotals.Empty` без винятку |
+| `Overdue_SortsByDaysOverdue_AndSkipsClosedLoans` | прострочені видачі | `L-2` (6 днів), `L-1` (2 дні), закрита не потрапляє |
+| `Loan...` (5 тестів) | стан видачі, ліміт 5 видач | `DomainException` і незмінний стан |
+| `ImportAsync_WhenAlreadyCancelled_Throws` | скасований заздалегідь токен | `OperationCanceledException` |
+| `ImportAsync_AddsOnlyNewCopies_AndRaisesEventPerAddedCopy` | ідемпотентність імпорту | 2 додано, 2 події |
+| `LoadAsync_WithInvalidRecord_...` | тимчасовий файл із поганим записом | `DomainException` «Запис 2: ...», inner `ArgumentException` |
+| `LoadAsync_WithMalformedJson_...` | тимчасовий файл із битим JSON | `StorageException`, inner `JsonException` |
+
 <details>
 <summary><b>Додаткові завдання</b></summary>
 
@@ -289,5 +333,11 @@ Stopwatch на 100 000 записів: Виконано (`ReportBenchmark.Run`, 
 
 Висновок: `ToList` у середині ланцюжка не пришвидшує, а додає проміжний список і виділення пам'яті (у кращому разі не змінює час, бо `GroupBy` усе одно буферизує все). Дорого коштує інше — повторне перебирання не матеріалізованого запиту: три використання = три повні проходи, приблизно втричі довше, ніж один `ToList` і робота зі списком.  
 
+
+**Лабораторна робота 8**  
+`IAsyncEnumerable<BookCopy>` + `await foreach`: Виконано. `JsonCatalogImporter.StreamAsync(path, [EnumeratorCancellation] ct)` читає записи по одному через `JsonSerializer.DeserializeAsyncEnumerable`; `LendingService.ImportStreamAsync` додає кожен одразу (`import --stream`). При скасуванні вже отримані записи лишаються у сховищі (`import --stream --delay 300 --cancel-after 1000` → 3 додано). Тести `StreamAsync_ReadsRecordsOneByOne_AndStopsWhenCancelled`, `ImportStreamAsync_AddsEveryRecord`.  
+Зв'язані токени: Виконано. `Core/Services/TimeoutRunner.RunAsync(operation, timeout, ct)` створює `CreateLinkedTokenSource(ct, timeoutCts.Token)`; якщо скасування прийшло від таймауту, а не від користувача, кидає `TimeoutException` з `OperationCanceledException` в `InnerException` (`import --delay 200 --timeout 1500`). Тест `RunAsync_WhenTimeoutFires_ThrowsTimeoutException_AndStoreIsUnchanged` доводить, що спрацював саме таймаут (токен користувача не скасований), а `RunAsync_WhenUserCancels_ThrowsOperationCanceled_NotTimeout` — протилежний випадок.  
+`IProgress<int>`: Виконано. `LendingService.ImportAsync(importer, path, progress, ct)` повідомляє відсоток після кожного запису (лише коли він змінився); у Cli `Cli/Import/ConsoleProgress` друкує «Прогрес: 5% 11% ... 100%». Тест `ImportAsync_ReportsProgressUpTo100` (4 записи → 25, 50, 75, 100).  
+Покриття: Виконано (`dotnet test --collect:"XPlat Code Coverage"`, coverlet). Рядків Core покрито 35.2% (294 з 835), гілок 28.9%. Логіка ЛР8 і сервіс покриті добре: `LendingService` 89%, `TimeoutRunner` 91%, `BookCopy` 88%, `JsonCatalogImporter` 84%, `Loan` 60%. Не покриті `SampleData`, `EnvironmentInfo`, `ReportBenchmark`, `DeferredExecutionDemo` (демонстраційний код без бізнес-правил), CSV-імпортери ЛР3, `FileBookStore` і `CachingBookStore` (робота з диском, за правилами ЛР8 модульні тести диск не читають). Це прийнятно: усі бізнес-правила, події, скасування й обробка поганих даних перевірені.  
 
 </details>

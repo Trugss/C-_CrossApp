@@ -20,10 +20,10 @@ public sealed class LoanService
 
         if (activeLoansCount >= MaxActiveLoansPerReader)
         {
-            throw new InvalidOperationException(
+            throw new DomainException(
                 $"Читач '{readerId}' перевищив ліміт активних видач: дозволено максимум {MaxActiveLoansPerReader}, зараз відкрито {activeLoansCount}");
         }
 
         return Loan.Open(loanId, copy, readerId, issuedOn);
     }
-}
+}
