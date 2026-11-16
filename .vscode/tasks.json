@@ -180,6 +180,246 @@
         "showReuseMessage": false,
         "echo": true
       }
+    },
+    {
+      "label": "ЛР8: dotnet test",
+      "type": "shell",
+      "command": "dotnet test",
+      "problemMatcher": [],
+      "presentation": {
+        "panel": "shared",
+        "clear": true,
+        "showReuseMessage": false,
+        "echo": true
+      }
+    },
+    {
+      "label": "ЛР8: import",
+      "type": "shell",
+      "command": "dotnet run --project src/Cli -- import",
+      "problemMatcher": [],
+      "presentation": {
+        "panel": "shared",
+        "clear": true,
+        "showReuseMessage": false,
+        "echo": true
+      }
+    },
+    {
+      "label": "ЛР8: import --cancel-after",
+      "type": "shell",
+      "command": "dotnet run --project src/Cli -- import --delay 200 --cancel-after 1500",
+      "problemMatcher": [],
+      "presentation": {
+        "panel": "shared",
+        "clear": true,
+        "showReuseMessage": false,
+        "echo": true
+      }
+    },
+    {
+      "label": "ЛР8: import --timeout",
+      "type": "shell",
+      "command": "dotnet run --project src/Cli -- import --delay 200 --timeout 1500",
+      "problemMatcher": [],
+      "presentation": {
+        "panel": "shared",
+        "clear": true,
+        "showReuseMessage": false,
+        "echo": true
+      }
+    },
+    {
+      "label": "ЛР8: import broken",
+      "type": "shell",
+      "command": "dotnet run --project src/Cli -- import --path data/catalog-broken.json",
+      "problemMatcher": [],
+      "presentation": {
+        "panel": "shared",
+        "clear": true,
+        "showReuseMessage": false,
+        "echo": true
+      }
+    },
+    {
+      "label": "ЛР8: import malformed",
+      "type": "shell",
+      "command": "dotnet run --project src/Cli -- import --path data/catalog-malformed.json",
+      "problemMatcher": [],
+      "presentation": {
+        "panel": "shared",
+        "clear": true,
+        "showReuseMessage": false,
+        "echo": true
+      }
+    },
+    {
+      "label": "ЛР8: import --stream",
+      "type": "shell",
+      "command": "dotnet run --project src/Cli -- import --stream --delay 100",
+      "problemMatcher": [],
+      "presentation": {
+        "panel": "shared",
+        "clear": true,
+        "showReuseMessage": false,
+        "echo": true
+      }
+    },
+    {
+      "label": "ЛР8: import --stream --cancel-after",
+      "type": "shell",
+      "command": "dotnet run --project src/Cli -- import --stream --delay 300 --cancel-after 1000",
+      "problemMatcher": [],
+      "presentation": {
+        "panel": "shared",
+        "clear": true,
+        "showReuseMessage": false,
+        "echo": true
+      }
+    },
+    {
+      "label": "ЛР8: import Ctrl+C",
+      "type": "shell",
+      "command": "dotnet run --project src/Cli -- import --delay 500",
+      "problemMatcher": [],
+      "presentation": {
+        "panel": "shared",
+        "clear": true,
+        "showReuseMessage": false,
+        "echo": true
+      }
+    },
+    {
+      "label": "ЛР8: coverage",
+      "type": "shell",
+      "command": "dotnet test --collect 'XPlat Code Coverage'",
+      "problemMatcher": [],
+      "presentation": {
+        "panel": "shared",
+        "clear": true,
+        "showReuseMessage": false,
+        "echo": true
+      }
+    },
+    {
+      "label": "ЛР9: config",
+      "type": "shell",
+      "command": "[Console]::OutputEncoding = [Text.Encoding]::UTF8; dotnet run --project src/Cli -- config",
+      "problemMatcher": [],
+      "presentation": {
+        "panel": "shared",
+        "clear": true,
+        "showReuseMessage": false,
+        "echo": true
+      }
+    },
+    {
+      "label": "ЛР9: user-secrets",
+      "type": "shell",
+      "command": "[Console]::OutputEncoding = [Text.Encoding]::UTF8; dotnet user-secrets set 'Integration:ApiKey' 'local-dev-key' --project src/Cli | Out-Host; dotnet user-secrets list --project src/Cli | Out-Host; Select-String 'UserSecretsId' src/Cli/Cli.csproj | ForEach-Object { $_.Line.Trim() }; Join-Path $env:APPDATA \"Microsoft\\UserSecrets\\307a8cb4-c9ae-48ff-a69e-97dffae58d56\\secrets.json\" | Get-Item | Select-Object -ExpandProperty FullName; 'secrets.json у git status: ' + (git status --short --untracked-files=all | Select-String 'secrets' | Measure-Object).Count",
+      "problemMatcher": [],
+      "presentation": {
+        "panel": "shared",
+        "clear": true,
+        "showReuseMessage": false,
+        "echo": true
+      }
+    },
+    {
+      "label": "ЛР9: export",
+      "type": "shell",
+      "command": "[Console]::OutputEncoding = [Text.Encoding]::UTF8; dotnet run --project src/Cli -- export",
+      "problemMatcher": [],
+      "presentation": {
+        "panel": "shared",
+        "clear": true,
+        "showReuseMessage": false,
+        "echo": true
+      }
+    },
+    {
+      "label": "ЛР9: два робочі каталоги",
+      "type": "shell",
+      "command": "[Console]::OutputEncoding = [Text.Encoding]::UTF8; dotnet run --project src/Cli -- config | Select-String 'CurrentDirectory','library\\.json$'; Push-Location src/Cli; dotnet run -- config | Select-String 'CurrentDirectory','library\\.json$'; Pop-Location",
+      "problemMatcher": [],
+      "presentation": {
+        "panel": "shared",
+        "clear": true,
+        "showReuseMessage": false,
+        "echo": true
+      }
+    },
+    {
+      "label": "ЛР9: CROSSAPP_DATA_PATH",
+      "type": "shell",
+      "command": "[Console]::OutputEncoding = [Text.Encoding]::UTF8; 'До:'; dotnet run --project src/Cli -- export | Select-String 'library\\.json$','DataPath','Експортовано'; $env:CROSSAPP_DATA_PATH = Join-Path $env:TEMP 'crossapp-data'; 'Після: CROSSAPP_DATA_PATH = ' + $env:CROSSAPP_DATA_PATH; dotnet run --project src/Cli -- export | Select-String 'library\\.json$','DataPath','Експортовано'; Get-ChildItem $env:CROSSAPP_DATA_PATH | ForEach-Object { $_.Name + '  ' + $_.Length + ' байт' }; Remove-Item Env:CROSSAPP_DATA_PATH",
+      "problemMatcher": [],
+      "presentation": {
+        "panel": "shared",
+        "clear": true,
+        "showReuseMessage": false,
+        "echo": true
+      }
+    },
+    {
+      "label": "ЛР9: Production",
+      "type": "shell",
+      "command": "[Console]::OutputEncoding = [Text.Encoding]::UTF8; $env:CROSSAPP_ENVIRONMENT = 'Production'; dotnet run --project src/Cli -- config; Remove-Item Env:CROSSAPP_ENVIRONMENT",
+      "problemMatcher": [],
+      "presentation": {
+        "panel": "shared",
+        "clear": true,
+        "showReuseMessage": false,
+        "echo": true
+      }
+    },
+    {
+      "label": "ЛР9: --data-path і валідація",
+      "type": "shell",
+      "command": "[Console]::OutputEncoding = [Text.Encoding]::UTF8; $env:CROSSAPP_DATA_PATH = 'env-data'; dotnet run --project src/Cli -- config --data-path=cli-data | Select-String 'library\\.json$','Storage:DataPath'; Remove-Item Env:CROSSAPP_DATA_PATH; dotnet run --project src/Cli -- config --data-path= --file-name=library.txt --format=xml; 'Код виходу: ' + $LASTEXITCODE",
+      "problemMatcher": [],
+      "presentation": {
+        "panel": "shared",
+        "clear": true,
+        "showReuseMessage": false,
+        "echo": true
+      }
+    },
+    {
+      "label": "ЛР9: export csv",
+      "type": "shell",
+      "command": "[Console]::OutputEncoding = [Text.Encoding]::UTF8; dotnet run --project src/Cli -- export --format=csv",
+      "problemMatcher": [],
+      "presentation": {
+        "panel": "shared",
+        "clear": true,
+        "showReuseMessage": false,
+        "echo": true
+      }
+    },
+    {
+      "label": "ЛР9: load і битий JSON",
+      "type": "shell",
+      "command": "[Console]::OutputEncoding = [Text.Encoding]::UTF8; dotnet run --project src/Cli -- load; dotnet run --project src/Cli -- load --path data/catalog-malformed.json; 'Код виходу: ' + $LASTEXITCODE",
+      "problemMatcher": [],
+      "presentation": {
+        "panel": "shared",
+        "clear": true,
+        "showReuseMessage": false,
+        "echo": true
+      }
+    },
+    {
+      "label": "ЛР9: git grep",
+      "type": "shell",
+      "command": "[Console]::OutputEncoding = [Text.Encoding]::UTF8; 'Шляхи у src: ' + (git grep --untracked -n -F -e 'C:\\' -e '/home/' -e '\\\\' -- src | Measure-Object).Count; 'Secret у src, tests, data: ' + (git grep --untracked -n -F 'local-dev-key' -- src tests data | Measure-Object).Count; Get-Content src/Cli/appsettings.json",
+      "problemMatcher": [],
+      "presentation": {
+        "panel": "shared",
+        "clear": true,
+        "showReuseMessage": false,
+        "echo": true
+      }
     }
   ]
 }

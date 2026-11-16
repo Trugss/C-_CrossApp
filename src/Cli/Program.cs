@@ -1,5 +1,6 @@
 ﻿using Core;
 using Core.Abstractions;
+using Core.Configuration;
 using Core.Domain;
 using Core.Events;
 using Core.Import;
@@ -8,14 +9,38 @@ using Core.Storage;
 
 Console.OutputEncoding = System.Text.Encoding.UTF8;
 
+AppSettings settings;
+try
+{
+    settings = AppConfiguration.Load(args);
+}
+catch (Exception ex) when (ex is InvalidOperationException or FileNotFoundException or FormatException)
+{
+    Console.WriteLine($"Помилка конфігурації: {ex.Message}");
+    return 2;
+}
+
+var configErrors = AppOptionsValidator.Validate(settings.Options);
+if (configErrors.Count > 0)
+{
+    Console.WriteLine("Помилка конфігурації, застосунок не запущено:");
+    foreach (var error in configErrors)
+        Console.WriteLine($"   {error}");
+    return 2;
+}
+
+var log = new ConsoleLog(settings.Options.Logging.MinimumLevel);
+log.Debug($"Профіль {settings.EnvironmentName}, рівень логу {log.Minimum}, джерело DataPath: {settings.SourceOf("Storage:DataPath")}");
+
 bool useFile = args.Contains("--file");
 bool useCache = args.Contains("--cache");
-string dataPath = Path.Combine(AppContext.BaseDirectory, "data", "library.json");
+string dataPath = settings.DataFile();
+int loanDays = settings.Options.Library.LoanDays;
 
 IBookStore store;
 if (args.Contains("--factory"))
 {
-    store = StoreFactory.Create(args);
+    store = StoreFactory.Create(args, dataPath);
 }
 else
 {
@@ -38,14 +63,33 @@ if (command == "import")
 {
     Console.WriteLine();
     await ImportCommand.RunAsync(service, args);
-    return;
+    return 0;
+}
+
+if (SettingsCommands.Commands.Contains(command))
+{
+    Console.WriteLine();
+    try
+    {
+        return SettingsCommands.Run(command, settings, log, service, args);
+    }
+    catch (StorageException ex)
+    {
+        Console.WriteLine($"Технічна помилка: {ex.Message}");
+        return 1;
+    }
+    catch (DomainException ex)
+    {
+        Console.WriteLine($"Дані відхилено: {ex.Message}");
+        return 1;
+    }
 }
 
 if (command != "demo")
 {
     Console.WriteLine();
     ReportCommands.Run(command, service, args);
-    return;
+    return 0;
 }
 
 var logPath = Path.Combine(AppContext.BaseDirectory, "logs", "app.log");
@@ -84,7 +128,7 @@ Console.WriteLine($"Додано:  {created}");
 
 service.Changed -= orderProbe;
 
-service.IssueCopy(created.Id, "R-001");
+service.IssueCopy(created.Id, "R-001", loanDays);
 Console.WriteLine($"Видано:  {service.Find(created.Id)}");
 
 service.ReturnCopy(created.Id);
@@ -178,6 +222,8 @@ else
 {
     Console.WriteLine($"   Файл {importPath} не знайдено (запускайте з кореня рішення або передайте --import <шлях>)");
 }
+
+return 0;
 
 static string ImportPath(string[] args)
 {

@@ -284,6 +284,73 @@ dotnet test --collect:"XPlat Code Coverage"
 | `LoadAsync_WithInvalidRecord_...` | тимчасовий файл із поганим записом | `DomainException` «Запис 2: ...», inner `ArgumentException` |
 | `LoadAsync_WithMalformedJson_...` | тимчасовий файл із битим JSON | `StorageException`, inner `JsonException` |
 
+## Шляхи, JSON, конфігурація, secrets (ЛР9)
+
+**Шляхи.** У `src` немає жодного абсолютного шляху (`git grep -n -F "C:\\" -- src`, `"/home/"`, `"\\"` дають порожньо). Усі шляхи будуються через `Path.Combine`, а базовий каталог задається явно: файл даних рахується від `AppContext.BaseDirectory` (каталог зі зібраним застосунком), тому запуск з кореня рішення і з `src/Cli` дає той самий файл. У профілі Production дані лежать у `Environment.SpecialFolder.LocalApplicationData/CrossApp/data`.
+
+**Конфігурація.** Пакети стоять лише в `src/Cli`, Core знає тільки про класи налаштувань `Core/Configuration/AppOptions` (`StorageOptions`, `LoggingOptions`, `LibraryOptions`) і `AppOptionsValidator`. Порядок джерел у `Cli/Configuration/AppConfiguration`, кожне наступне перекриває попереднє:
+
+```
+appsettings.json → appsettings.{Environment}.json → user-secrets → змінні CROSSAPP_* → CROSSAPP_DATA_PATH → командний рядок
+```
+
+Профіль обирає змінна `CROSSAPP_ENVIRONMENT` (типово `Development`).
+
+| Профіль | Logging:MinimumLevel | Де лежать дані | Library:LoanDays |
+|---|---|---|---|
+| Development | Debug, видно рядки `[dbg]` | `src/Cli/bin/Debug/net10.0/data/library.json` | 14 |
+| Production | Warning | `LocalApplicationData/CrossApp/data/library.json` | 21 |
+
+| Ключ | Типово | Змінна середовища | Командний рядок |
+|---|---|---|---|
+| `EnvironmentName` | Development | `CROSSAPP_EnvironmentName` | `--EnvironmentName=...` |
+| `Logging:MinimumLevel` | Information (Debug у Development) | `CROSSAPP_Logging__MinimumLevel` | `--Logging:MinimumLevel=Warning` |
+| `Storage:DataPath` | data | `CROSSAPP_Storage__DataPath` або `CROSSAPP_DATA_PATH` | `--data-path=...` |
+| `Storage:FileName` | library.json | `CROSSAPP_Storage__FileName` | `--file-name=...` |
+| `Storage:Format` | json | `CROSSAPP_Storage__Format` | `--format=csv` |
+| `Storage:UseLocalAppData` | false (true у Production) | `CROSSAPP_Storage__UseLocalAppData` | `--Storage:UseLocalAppData=true` |
+| `Library:LoanDays` | 14 (21 у Production) | `CROSSAPP_Library__LoanDays` | `--Library:LoanDays=30` |
+| `Integration:ApiKey` | немає, лише user-secrets або env | `CROSSAPP_Integration__ApiKey` | не використовується |
+
+**Команди.**
+
+```
+dotnet run --project src/Cli -- config      # профіль, каталоги, файл даних, таблиця ключів і джерел
+dotnet run --project src/Cli -- export      # уся колекція у JSON, атомарний запис .tmp + File.Move
+dotnet run --project src/Cli -- load        # імпорт колекції з JSON через FileBookStore
+dotnet run --project src/Cli -- load --path data/catalog-malformed.json   # Технічна помилка: ... пошкоджено
+dotnet run --project src/Cli -- --file import                             # імпорт каталогу у файл із конфігурації
+```
+
+**Перевизначення шляху.**
+
+PowerShell:
+```powershell
+$env:CROSSAPP_DATA_PATH = "$env:TEMP\crossapp-data"
+dotnet run --project src/Cli -- export
+Remove-Item Env:CROSSAPP_DATA_PATH
+$env:CROSSAPP_ENVIRONMENT = "Production"
+$env:CROSSAPP_Storage__DataPath = "D:\crossapp"
+```
+
+bash:
+```bash
+CROSSAPP_DATA_PATH=/tmp/crossapp-data dotnet run --project src/Cli -- export
+CROSSAPP_ENVIRONMENT=Production dotnet run --project src/Cli -- config
+export CROSSAPP_Storage__DataPath=$HOME/crossapp
+```
+
+**Secret.** `Cli.csproj` містить лише `UserSecretsId`, саме значення записується поза репозиторієм:
+
+```
+dotnet user-secrets set "Integration:ApiKey" "local-dev-key" --project src/Cli
+dotnet user-secrets list --project src/Cli
+```
+
+Windows: `%APPDATA%\Microsoft\UserSecrets\<UserSecretsId>\secrets.json`, Linux і macOS: `~/.microsoft/usersecrets/<UserSecretsId>/secrets.json`. Програма друкує лише `ApiKey: присутній, довжина 13`. На сервері замість user-secrets використовується змінна `CROSSAPP_Integration__ApiKey`.
+
+**JSON.** `Core/Storage/CatalogJson.Options`: `WriteIndented`, `PropertyNamingPolicy = CamelCase`, `PropertyNameCaseInsensitive`, `Encoder = UnsafeRelaxedJsonEscaping`, тому у файлі `"title": "Кобзар"`, а не `\u041A...`. `FileBookStore` пише через `AtomicFile.WriteAllText` (`library.json.tmp`, потім `File.Move(..., overwrite: true)`), при читанні кожен запис проходить `BookCopy.FromDto`, битий JSON дає `StorageException`, поганий запис дає `DomainException` з номером запису.
+
 <details>
 <summary><b>Додаткові завдання</b></summary>
 
@@ -339,5 +406,11 @@ Stopwatch на 100 000 записів: Виконано (`ReportBenchmark.Run`, 
 Зв'язані токени: Виконано. `Core/Services/TimeoutRunner.RunAsync(operation, timeout, ct)` створює `CreateLinkedTokenSource(ct, timeoutCts.Token)`; якщо скасування прийшло від таймауту, а не від користувача, кидає `TimeoutException` з `OperationCanceledException` в `InnerException` (`import --delay 200 --timeout 1500`). Тест `RunAsync_WhenTimeoutFires_ThrowsTimeoutException_AndStoreIsUnchanged` доводить, що спрацював саме таймаут (токен користувача не скасований), а `RunAsync_WhenUserCancels_ThrowsOperationCanceled_NotTimeout` — протилежний випадок.  
 `IProgress<int>`: Виконано. `LendingService.ImportAsync(importer, path, progress, ct)` повідомляє відсоток після кожного запису (лише коли він змінився); у Cli `Cli/Import/ConsoleProgress` друкує «Прогрес: 5% 11% ... 100%». Тест `ImportAsync_ReportsProgressUpTo100` (4 записи → 25, 50, 75, 100).  
 Покриття: Виконано (`dotnet test --collect:"XPlat Code Coverage"`, coverlet). Рядків Core покрито 35.2% (294 з 835), гілок 28.9%. Логіка ЛР8 і сервіс покриті добре: `LendingService` 89%, `TimeoutRunner` 91%, `BookCopy` 88%, `JsonCatalogImporter` 84%, `Loan` 60%. Не покриті `SampleData`, `EnvironmentInfo`, `ReportBenchmark`, `DeferredExecutionDemo` (демонстраційний код без бізнес-правил), CSV-імпортери ЛР3, `FileBookStore` і `CachingBookStore` (робота з диском, за правилами ЛР8 модульні тести диск не читають). Це прийнятно: усі бізнес-правила, події, скасування й обробка поганих даних перевірені.  
+
+**Лабораторна робота 9**  
+Валідація налаштувань на старті: Виконано. `AppOptionsValidator.Validate` перевіряє порожні `DataPath` і `FileName`, `FileName` без `.json`, невідомий `Format` і `LoanDays` поза 1..365. Program друкує всі помилки і завершується з кодом 2 без винятку (`config --data-path=` → код 2). Нечитабельне значення, наприклад `--Logging:MinimumLevel=Loud`, теж дає код 2.  
+Ключ `--data-path=...` через `AddCommandLine`: Виконано. `AddCommandLine(args, switchMappings)` стоїть останнім, тому аргумент перекриває і файл, і `CROSSAPP_Storage__DataPath`, і `CROSSAPP_DATA_PATH`. Також є `--file-name=` і `--format=`.  
+Формат експорту через `Storage:Format`: Виконано. Інтерфейс `Core/Abstractions/ICatalogExporter`, реалізації `JsonCatalogExporter` і `CsvCatalogExporter`, вибір у `CatalogExporters.Create(format)`. Для csv файл має те саме ім'я з розширенням `.csv` (`export --format=csv`).  
+Тест `FileBookStore` у `Path.GetTempPath`: Виконано. `FileBookStoreTests` створює `TempDirectory` (власний каталог у `Path.GetTempPath()`), додає примірник, відкриває новий екземпляр store і перевіряє, що `List` повертає той самий примірник; каталог видаляється у `Dispose`. Разом з тестами конфігурації і експортерів тестів стало 50.  
 
 </details>

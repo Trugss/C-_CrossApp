@@ -10,6 +10,7 @@ public static class ReportCommands
         "report-top | report-overdue | report-genres | report-sum | report-low | report-editions\n" +
         "report-readers | report-overdue-details | report-query | report-deferred | report-bench | report-all\n" +
         "import [--path <файл>] [--stream] [--delay <мс>] [--cancel-after <мс>] [--timeout <мс>]\n" +
+        "config | export | load [--path <файл>]   --data-path=<каталог> --format=json|csv\n" +
         "прапорці: --n <число> (розмір топу / поріг / кількість записів), --empty (порожнє джерело)";
 
     private static readonly string[] OptionsWithValue = ["--import", "--n", "--path", "--delay", "--cancel-after", "--timeout"];
