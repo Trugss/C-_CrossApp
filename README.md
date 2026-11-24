@@ -351,6 +351,85 @@ Windows: `%APPDATA%\Microsoft\UserSecrets\<UserSecretsId>\secrets.json`, Linux �
 
 **JSON.** `Core/Storage/CatalogJson.Options`: `WriteIndented`, `PropertyNamingPolicy = CamelCase`, `PropertyNameCaseInsensitive`, `Encoder = UnsafeRelaxedJsonEscaping`, тому у файлі `"title": "Кобзар"`, а не `\u041A...`. `FileBookStore` пише через `AtomicFile.WriteAllText` (`library.json.tmp`, потім `File.Move(..., overwrite: true)`), при читанні кожен запис проходить `BookCopy.FromDto`, битий JSON дає `StorageException`, поганий запис дає `DomainException` з номером запису.
 
+## Minimal API: CRUD над Core, валідація, OpenAPI (ЛР10)
+
+Поряд із `src/Cli` з'явилась друга точка входу `src/Api` (ASP.NET Core Minimal API, `net10.0`). Обидві використовують той самий `Core`, а `Core` не має жодного посилання на ASP.NET. Варіант домену: бібліотека, ресурс `/api/books` з полями `isbn, title, author, year, copies`.
+
+**Що додано.**
+
+* `Core/Domain/Book` з фабрикою `Book.Create` (інваріанти: непорожні рядки, назва до 200, автор до 100, рік від 1450 до поточного, примірників від 1 до 1000).
+* `Core/Abstractions/ICatalogStore` і `Core/Storage/InMemoryCatalogStore` (потокобезпечне, `lock`, унікальний ISBN, порушення дає `DomainException`).
+* `Core/Services/CatalogService` (`Find` з фільтром за автором, пошуком і пагінацією, `Create`, `Replace`, `Delete`).
+* `Api/Contracts`: `BookDto` (вихідний), `SaveBookRequest` (вхідний), `PagedResponse<T>`, `BookListQuery`, мапінг `BookMapping.ToDto()`.
+* `Api/Endpoints/BookEndpoints`: п'ять маршрутів через `MapGroup("/api/books")` і `TypedResults`.
+* `Api/Validation`: валідатори FluentValidation і `ValidationFilter<T>` через `AddEndpointFilter`.
+* `Api/Errors`: `DomainExceptionHandler` (409) і `BadRequestExceptionHandler` (400 на нерозібране тіло).
+* `Api/Api.http`, `Api/Properties/launchSettings.json`, `data/api/*.json` з тілами запитів, `tests/Api.Tests`.
+
+**Запуск.** Порт зафіксовано в `src/Api/Properties/launchSettings.json`: `http://localhost:5080`, профіль `Development`.
+
+```
+dotnet run --project src/Api
+dotnet run --project src/Api --urls http://localhost:5080
+```
+
+У Development доступні `http://localhost:5080/openapi/v1.json` і `http://localhost:5080/scalar/v1`. У Production обидва дають 404:
+
+```powershell
+$env:ASPNETCORE_ENVIRONMENT = "Production"; dotnet run --project src/Api --no-launch-profile --urls http://localhost:5080
+```
+
+**Маршрути.**
+
+| Метод | Шлях | Тіло | Коди відповідей |
+|---|---|---|---|
+| GET | `/api/books?author=&search=&page=1&pageSize=20` | немає | 200 `{ items, total, page, pageSize }`, 400 |
+| GET | `/api/books/{id}` | немає | 200 `BookDto`, 404 |
+| POST | `/api/books` | `SaveBookRequest` | 201 `BookDto` + `Location`, 400, 409, 415 |
+| PUT | `/api/books/{id}` | `SaveBookRequest` | 200 `BookDto`, 400, 404, 409 |
+| DELETE | `/api/books/{id}` | немає | 204, 404 |
+| GET | `/health` | немає | 200 `{ status: "ok" }` |
+
+Помилки повертаються як `application/problem+json` (RFC 9457). 400 від валідації містить словник `errors` з полями. Невідомий виняток дає 500 без тексту винятку і stack trace.
+
+**curl.** bash:
+
+```bash
+curl -i -X POST http://localhost:5080/api/books -H "Content-Type: application/json" \
+  -d '{"isbn":"978-966-03-9999-1","title":"Земля","author":"Ольга Кобилянська","year":2021,"copies":3}'
+curl -i http://localhost:5080/api/books/<id>
+curl -i -X PUT http://localhost:5080/api/books/<id> -H "Content-Type: application/json" --data-binary @data/api/book-update.json
+curl -i -X DELETE http://localhost:5080/api/books/<id>
+curl -i "http://localhost:5080/api/books?author=martin&page=1&pageSize=1"
+curl -i -X POST http://localhost:5080/api/books -H "Content-Type: application/json" -d '{"isbn":"","title":"X","author":"","year":3000,"copies":-1}'
+```
+
+PowerShell (`curl.exe`, бо `curl` у Windows PowerShell 5.1 це `Invoke-WebRequest`):
+
+```powershell
+curl.exe -i -X POST http://localhost:5080/api/books -H 'Content-Type: application/json' --data-binary '@data/api/book-new.json'
+curl.exe -i -X POST http://localhost:5080/api/books -H 'Content-Type: application/json' --data-binary '@data/api/book-invalid.json'
+```
+
+Очікувано:
+
+```
+HTTP/1.1 201 Created
+Location: /api/books/937f7d82
+{"id":"937f7d82","isbn":"978-966-03-9999-1","title":"Земля","author":"Ольга Кобилянська","year":2021,"copies":3}
+
+HTTP/1.1 400 Bad Request
+Content-Type: application/problem+json
+{"type":"https://tools.ietf.org/html/rfc9110#section-15.5.1","title":"One or more validation errors occurred.","status":400,
+ "errors":{"Isbn":["ISBN обов'язковий."],"Author":["Автор обов'язковий, до 100 символів."],"Year":["Рік видання має бути від 1450 до 2026."],"Copies":["Кількість примірників має бути від 1 до 1000."]}}
+```
+
+У VS Code є задачі `ЛР10: ...` (Terminal → Run Task): спочатку `ЛР10: api`, потім `ЛР10: CRUD цикл`, `ЛР10: curl POST`, `ЛР10: curl 400`, `ЛР10: 400 на тілі`, `ЛР10: 409 і 500`, `ЛР10: пошук і пагінація`, `ЛР10: Scalar`.
+
+**DI.** `ICatalogStore` зареєстровано як Singleton (один каталог у пам'яті на весь процес, тому всередині `lock`), `CatalogService` як Scoped (новий на кожен HTTP-запит, легкий і без стану), валідатори FluentValidation як Scoped. Обробники отримують `ICatalogStore` або `CatalogService` параметром делегата. На ЛР11 зміниться лише реєстрація `ICatalogStore` (EF Core і SQLite, Scoped разом з `DbContext`), маршрути і JSON лишаться тими самими.
+
+**DTO.** Назовні віддається лише `BookDto`, доменний `Book` у JSON не потрапляє. Поля JSON у camelCase, кирилиця без `\u` екранування (`UnsafeRelaxedJsonEscaping`).
+
 <details>
 <summary><b>Додаткові завдання</b></summary>
 
@@ -412,5 +491,10 @@ Stopwatch на 100 000 записів: Виконано (`ReportBenchmark.Run`, 
 Ключ `--data-path=...` через `AddCommandLine`: Виконано. `AddCommandLine(args, switchMappings)` стоїть останнім, тому аргумент перекриває і файл, і `CROSSAPP_Storage__DataPath`, і `CROSSAPP_DATA_PATH`. Також є `--file-name=` і `--format=`.  
 Формат експорту через `Storage:Format`: Виконано. Інтерфейс `Core/Abstractions/ICatalogExporter`, реалізації `JsonCatalogExporter` і `CsvCatalogExporter`, вибір у `CatalogExporters.Create(format)`. Для csv файл має те саме ім'я з розширенням `.csv` (`export --format=csv`).  
 Тест `FileBookStore` у `Path.GetTempPath`: Виконано. `FileBookStoreTests` створює `TempDirectory` (власний каталог у `Path.GetTempPath()`), додає примірник, відкриває новий екземпляр store і перевіряє, що `List` повертає той самий примірник; каталог видаляється у `Dispose`. Разом з тестами конфігурації і експортерів тестів стало 50.  
+**Лабораторна робота 10**  
+Пагінація `GET /api/books?page=1&pageSize=20&search=...`: Виконано. Відповідь `{ items, total, page, pageSize }`, `search` шукає в назві, авторі й ISBN, `author` фільтрує за автором. `page < 1` або `pageSize` поза 1..100 дає 400 з полями `Page` і `PageSize`.  
+FluentValidation через `AddEndpointFilter`: Виконано. `SaveBookRequestValidator` і `BookListQueryValidator` реєструються `AddValidatorsFromAssemblyContaining`, `ValidationFilter<T>` викликає валідатор до обробника і повертає `TypedResults.ValidationProblem(result.ToDictionary())`. Метод-розширення `.Validate<T>()` також додає 400 в OpenAPI.  
+`DomainException` → 409 окремим обробником: Виконано. `DomainExceptionHandler : IExceptionHandler` (`AddExceptionHandler`) повертає ProblemDetails зі статусом 409 і повідомленням бізнес-правила, наприклад POST з ISBN, який уже є в каталозі. Решта винятків іде у стандартний обробник і дає 500 без деталей.  
+Інтеграційні тести на `WebApplicationFactory<Program>`: Виконано. `tests/Api.Tests/BookApiTests`: POST дає 201, GET за `Location` дає 200 з тим самим DTO; повний цикл CRUD з 404 після DELETE; 400 з полями; 400 на порожнє тіло, `"copies":"abc"` і битий JSON; 409; 500 без слова Exception; фільтр і пагінація; OpenAPI описує всі 5 маршрутів. Разом тестів 71 (Core.Tests 58, Api.Tests 13).  
 
 </details>

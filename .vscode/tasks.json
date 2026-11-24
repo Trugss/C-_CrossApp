@@ -420,6 +420,140 @@
         "showReuseMessage": false,
         "echo": true
       }
+    },
+    {
+      "label": "ЛР10: api",
+      "type": "shell",
+      "command": "dotnet run --project src/Api",
+      "problemMatcher": [],
+      "presentation": {
+        "panel": "dedicated",
+        "clear": true,
+        "showReuseMessage": false,
+        "echo": true
+      },
+      "isBackground": true
+    },
+    {
+      "label": "ЛР10: api Production",
+      "type": "shell",
+      "command": "$env:ASPNETCORE_ENVIRONMENT = 'Production'; dotnet run --project src/Api --no-launch-profile --urls http://localhost:5080",
+      "problemMatcher": [],
+      "presentation": {
+        "panel": "dedicated",
+        "clear": true,
+        "showReuseMessage": false,
+        "echo": true
+      },
+      "isBackground": true
+    },
+    {
+      "label": "ЛР10: Scalar",
+      "type": "shell",
+      "command": "Start-Process msedge 'http://localhost:5080/scalar/v1#tag/books'",
+      "problemMatcher": [],
+      "presentation": {
+        "panel": "shared",
+        "clear": true,
+        "showReuseMessage": false,
+        "echo": true
+      }
+    },
+    {
+      "label": "ЛР10: curl POST",
+      "type": "shell",
+      "command": "[Console]::OutputEncoding = [Text.Encoding]::UTF8; $u = 'http://localhost:5080/api/books'; $j = 'Content-Type: application/json'; curl.exe -s -i -X POST $u -H $j --data-binary '@data/api/book-new.json'; ''",
+      "problemMatcher": [],
+      "presentation": {
+        "panel": "shared",
+        "clear": true,
+        "showReuseMessage": false,
+        "echo": true
+      }
+    },
+    {
+      "label": "ЛР10: curl 400",
+      "type": "shell",
+      "command": "[Console]::OutputEncoding = [Text.Encoding]::UTF8; $u = 'http://localhost:5080/api/books'; $j = 'Content-Type: application/json'; curl.exe -s -i -X POST $u -H $j --data-binary '@data/api/book-invalid.json'; ''",
+      "problemMatcher": [],
+      "presentation": {
+        "panel": "shared",
+        "clear": true,
+        "showReuseMessage": false,
+        "echo": true
+      }
+    },
+    {
+      "label": "ЛР10: CRUD цикл",
+      "type": "shell",
+      "command": "[Console]::OutputEncoding = [Text.Encoding]::UTF8; $u = 'http://localhost:5080/api/books'; $j = 'Content-Type: application/json'; 'POST'; $c = curl.exe -s -X POST $u -H $j --data-binary '@data/api/book-crud.json'; $c; $id = ($c | ConvertFrom-Json).id; ''; ('GET ' + $u + '/' + $id); curl.exe -s -w '\\n-> %{http_code}\\n\\n' $u/$id; ('PUT ' + $u + '/' + $id); curl.exe -s -w '\\n-> %{http_code}\\n\\n' -X PUT $u/$id -H $j --data-binary '@data/api/book-update.json'; ('PUT ' + $u + '/' + $id + ', порожня назва'); curl.exe -s -w '\\n-> %{http_code}\\n\\n' -X PUT $u/$id -H $j --data-binary '@data/api/book-empty-title.json'; ('DELETE ' + $u + '/' + $id); curl.exe -s -w '\\n-> %{http_code}\\n\\n' -X DELETE $u/$id; ('GET ' + $u + '/' + $id); curl.exe -s -w '\\n-> %{http_code}\\n\\n' $u/$id",
+      "problemMatcher": [],
+      "presentation": {
+        "panel": "shared",
+        "clear": true,
+        "showReuseMessage": false,
+        "echo": true
+      }
+    },
+    {
+      "label": "ЛР10: 400 на тілі",
+      "type": "shell",
+      "command": "[Console]::OutputEncoding = [Text.Encoding]::UTF8; $u = 'http://localhost:5080/api/books'; $j = 'Content-Type: application/json'; 'POST з порожнім тілом'; curl.exe -s -w '\\n-> %{http_code}\\n\\n' -X POST $u -H $j; 'POST з copies = abc'; curl.exe -s -w '\\n-> %{http_code}\\n\\n' -X POST $u -H $j --data-binary '@data/api/book-bad-type.json'; 'POST без Content-Type'; curl.exe -s -w '\\n-> %{http_code}\\n\\n' -X POST $u --data-binary '@data/api/book-new.json'",
+      "problemMatcher": [],
+      "presentation": {
+        "panel": "shared",
+        "clear": true,
+        "showReuseMessage": false,
+        "echo": true
+      }
+    },
+    {
+      "label": "ЛР10: 409 і 500",
+      "type": "shell",
+      "command": "[Console]::OutputEncoding = [Text.Encoding]::UTF8; $u = 'http://localhost:5080/api/books'; $j = 'Content-Type: application/json'; 'POST з ISBN, який уже є'; curl.exe -s -w '\\n-> %{http_code}\\n\\n' -X POST $u -H $j --data-binary '@data/api/book-duplicate.json'; 'POST /dev/fail'; curl.exe -s -w '\\n-> %{http_code}\\n\\n' -X POST 'http://localhost:5080/dev/fail'",
+      "problemMatcher": [],
+      "presentation": {
+        "panel": "shared",
+        "clear": true,
+        "showReuseMessage": false,
+        "echo": true
+      }
+    },
+    {
+      "label": "ЛР10: пошук і пагінація",
+      "type": "shell",
+      "command": "[Console]::OutputEncoding = [Text.Encoding]::UTF8; $u = 'http://localhost:5080/api/books'; $j = 'Content-Type: application/json'; 'GET ?author=martin'; curl.exe -s -w '\\n-> %{http_code}\\n\\n' ($u + '?author=martin'); 'GET ?search=ліс'; curl.exe -s -w '\\n-> %{http_code}\\n\\n' ($u + '?search=%D0%BB%D1%96%D1%81'); 'GET ?page=2&pageSize=3'; curl.exe -s -w '\\n-> %{http_code}\\n\\n' ($u + '?page=2&pageSize=3'); 'GET ?page=0&pageSize=500'; curl.exe -s -w '\\n-> %{http_code}\\n\\n' ($u + '?page=0&pageSize=500')",
+      "problemMatcher": [],
+      "presentation": {
+        "panel": "shared",
+        "clear": true,
+        "showReuseMessage": false,
+        "echo": true
+      }
+    },
+    {
+      "label": "ЛР10: Production",
+      "type": "shell",
+      "command": "[Console]::OutputEncoding = [Text.Encoding]::UTF8; $u = 'http://localhost:5080/api/books'; $j = 'Content-Type: application/json'; 'GET /scalar/v1'; curl.exe -s -o NUL -w '-> %{http_code}\\n' 'http://localhost:5080/scalar/v1'; 'GET /openapi/v1.json'; curl.exe -s -o NUL -w '-> %{http_code}\\n' 'http://localhost:5080/openapi/v1.json'; 'GET /api/books/a1b2c3d4'; curl.exe -s -w '\\n-> %{http_code}\\n\\n' \"$u/a1b2c3d4\"",
+      "problemMatcher": [],
+      "presentation": {
+        "panel": "shared",
+        "clear": true,
+        "showReuseMessage": false,
+        "echo": true
+      }
+    },
+    {
+      "label": "ЛР10: dotnet test",
+      "type": "shell",
+      "command": "[Console]::OutputEncoding = [Text.Encoding]::UTF8; dotnet test",
+      "problemMatcher": [],
+      "presentation": {
+        "panel": "shared",
+        "clear": true,
+        "showReuseMessage": false,
+        "echo": true
+      }
     }
   ]
 }

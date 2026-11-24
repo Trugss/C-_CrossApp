@@ -29,6 +29,18 @@ public static class SampleData
         BookCopy.Create("BC-020", "978-966-10-1288-3", title: "Лісова пісня", genre: "Драма"),
     ];
 
+    public static IReadOnlyList<Book> Catalog() =>
+    [
+        Book.Create("a1b2c3d4", "978-966-03-4004-2", "Кобзар", "Тарас Шевченко", 2019, 4),
+        Book.Create("b2c3d4e5", "978-966-10-1288-3", "Лісова пісня", "Леся Українка", 2018, 2),
+        Book.Create("c3d4e5f6", "978-617-679-341-4", "Тіні забутих предків", "Михайло Коцюбинський", 2020, 3),
+        Book.Create("d4e5f6a7", "978-966-03-7120-6", "Місто", "Валер'ян Підмогильний", 2017, 2),
+        Book.Create("e5f6a7b8", "978-966-14-8912-2", "Інститутка", "Марко Вовчок", 2016, 2),
+        Book.Create("f6a7b8c9", "978-0-13-468599-1", "Clean Architecture", "Robert C. Martin", 2017, 1),
+        Book.Create("a7b8c9d0", "978-0-13-235088-4", "Clean Code", "Robert C. Martin", 2008, 1),
+        Book.Create("b8c9d0e1", "978-1-61729-453-6", "C# in Depth", "Jon Skeet", 2019, 2),
+    ];
+
     public static IReadOnlyList<ReaderDto> Readers() =>
     [
         new("R-001", "Олена Коваленко", "olena.kovalenko@example.com"),

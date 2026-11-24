@@ -1,0 +1,122 @@
+@Api_HostAddress = http://localhost:5080
+@id = a1b2c3d4
+
+GET {{Api_HostAddress}}/health
+
+###
+
+GET {{Api_HostAddress}}/api/books
+
+###
+
+GET {{Api_HostAddress}}/api/books?author=Martin
+
+###
+
+GET {{Api_HostAddress}}/api/books?search=ліс&page=1&pageSize=5
+
+###
+
+GET {{Api_HostAddress}}/api/books?page=0&pageSize=500
+
+###
+
+# @name create
+POST {{Api_HostAddress}}/api/books
+Content-Type: application/json
+
+{
+  "isbn": "978-966-03-9999-1",
+  "title": "Земля",
+  "author": "Ольга Кобилянська",
+  "year": 2021,
+  "copies": 3
+}
+
+###
+
+@newId = {{create.response.body.$.id}}
+
+GET {{Api_HostAddress}}/api/books/{{newId}}
+
+###
+
+PUT {{Api_HostAddress}}/api/books/{{newId}}
+Content-Type: application/json
+
+{
+  "isbn": "978-966-03-9999-1",
+  "title": "Земля. Повість",
+  "author": "Ольга Кобилянська",
+  "year": 2022,
+  "copies": 5
+}
+
+###
+
+PUT {{Api_HostAddress}}/api/books/{{newId}}
+Content-Type: application/json
+
+{
+  "isbn": "978-966-03-9999-1",
+  "title": "",
+  "author": "Ольга Кобилянська",
+  "year": 2022,
+  "copies": 5
+}
+
+###
+
+DELETE {{Api_HostAddress}}/api/books/{{newId}}
+
+###
+
+GET {{Api_HostAddress}}/api/books/{{newId}}
+
+###
+
+POST {{Api_HostAddress}}/api/books
+Content-Type: application/json
+
+{
+  "isbn": "",
+  "title": "X",
+  "author": "",
+  "year": 3000,
+  "copies": -1
+}
+
+###
+
+POST {{Api_HostAddress}}/api/books
+Content-Type: application/json
+
+{
+  "isbn": "978-966-03-4004-2",
+  "title": "Кобзар, друге видання",
+  "author": "Тарас Шевченко",
+  "year": 2020,
+  "copies": 1
+}
+
+###
+
+POST {{Api_HostAddress}}/api/books
+Content-Type: application/json
+
+{
+  "isbn": "978-966-03-1111-1",
+  "title": "Кобзар",
+  "author": "Тарас Шевченко",
+  "year": 2020,
+  "copies": "abc"
+}
+
+###
+
+POST {{Api_HostAddress}}/api/books
+Content-Type: application/json
+
+###
+
+GET {{Api_HostAddress}}/api/books/{{id}}
